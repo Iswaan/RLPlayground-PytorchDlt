@@ -1,0 +1,11 @@
+streamlit
+gymnasium
+torch>=2.1.0
+numpy
+matplotlib
+pandas
+scipy
+pyyaml  # <--- Make sure this line is present
+pygame
+imageio
+imageio-ffmpeg

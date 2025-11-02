@@ -20,7 +20,7 @@ env/
 results/
 *.csv
 *.log
-*.json
+.json
 *.txt
 *.pth
 *.pt
@@ -28,7 +28,7 @@ results/
 *.pkl
 *.bin
 *.model
-
+!requirements.txt 
 # Jupyter Notebook specific files
 .ipynb_checkpoints/
 *.ipynb
