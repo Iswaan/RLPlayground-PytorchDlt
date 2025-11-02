@@ -69,7 +69,7 @@ a2c:
   entropy_coef: 0.01 # <-- ADD THIS (Weight for entropy bonus, 0.01 is standard)
 
 environment_params:
-  LunarLander-v2: # Or LunarLander-v3 if you primarily use that
+  LunarLander-v3: # Or LunarLander-v3 if you primarily use that
     gravity: -10.0
     enable_wind: False
     wind_power: 0.0

@@ -31,7 +31,7 @@ st.sidebar.title("RLPlayground Settings")
 st.sidebar.header("Environment")
 env_name = st.sidebar.selectbox(
     "Select Environment",
-    ["LunarLander-v2", "CartPole-v1"], # Add more environments as you develop adapters
+    ["LunarLander-v3", "CartPole-v1"], # Add more environments as you develop adapters
     index=0 # Default to LunarLander-v2
 )
 config['env_name'] = env_name # Update config dynamically
