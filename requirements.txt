@@ -9,3 +9,5 @@ pyyaml  # <--- Make sure this line is present
 pygame
 imageio
 imageio-ffmpeg
+swig                  
+gymnasium[box2d]  
