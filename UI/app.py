@@ -99,7 +99,7 @@ agent_type = st.selectbox(
     ["DQN", "A2C", "PPO"]
 )
 
-# Define agent_cfg_key based on agent_type
+# --- FIX 1: Define agent_cfg_key based on agent_type ---
 agent_cfg_key = agent_type.lower()
 
 
@@ -112,6 +112,8 @@ st.subheader(f"{agent_type} Hyperparameters (for training)")
 if agent_cfg_key not in config:
     config[agent_cfg_key] = {}
 current_agent_config_dict = config[agent_cfg_key]
+
+dqn_preset_name = None # Initialize dqn_preset_name outside the if block
 
 if agent_type == "DQN":
     dqn_preset_name = st.selectbox(
@@ -183,6 +185,7 @@ elif agent_type == "A2C":
     a2c_value_coef = st.number_input("Value Coefficient (A2C)", value=float(current_agent_config_dict.get('value_coef', 0.5)), min_value=0.0, step=0.01)
     a2c_entropy_coef = st.number_input("Entropy Coefficient (A2C)", value=float(current_agent_config_dict.get('entropy_coef', 0.01)), min_value=0.0, step=0.001, format="%f")
     
+    # --- FIX 2: Removed stray 'code' and 'Code' lines ---
     config['a2c']['lr'] = a2c_lr
     config['a2c']['gamma'] = a2c_gamma
     config['a2c']['activation'] = a2c_activation
@@ -202,6 +205,7 @@ elif agent_type == "PPO":
     ppo_ent_coef = st.number_input("Entropy Coefficient (PPO)", value=float(current_agent_config_dict.get('ent_coef', 0.01)), min_value=0.0, step=0.001, format="%f")
     ppo_activation = st.selectbox("Activation (PPO)", ["ReLU", "Tanh"], index=0 if current_agent_config_dict.get('activation', 'ReLU') == 'ReLU' else 1)
     
+    # --- FIX 2: Removed stray 'code' and 'Code' lines ---
     config['ppo']['lr'] = ppo_lr
     config['ppo']['gamma'] = ppo_gamma
     config['ppo']['n_steps'] = ppo_n_steps
@@ -213,7 +217,7 @@ elif agent_type == "PPO":
     config['ppo']['activation'] = ppo_activation
 
 
-# --- Training Controls (Untouched) ---
+# --- Training Controls (Untouched for this specific goal) ---
 st.subheader("Training Control")
 col1, col2 = st.columns(2)
 if col1.button("Start Training"):
@@ -223,9 +227,11 @@ if col1.button("Start Training"):
     
     st.text(f"Starting {agent_type} training for {train_episodes} episodes on {env_name}...")
 
+    # Uses agent_cfg_key defined above
     script_to_run = f"train_{agent_cfg_key}.py"
     command = [sys.executable, os.path.join(project_root, script_to_run)]
 
+    # Uses agent_cfg_key defined above
     current_agent_run_name = agent_cfg_key
     if agent_type == "DQN":
         if dqn_preset_name != "base_dqn":
@@ -235,8 +241,7 @@ if col1.button("Start Training"):
             current_agent_run_name = "dqn"
             
         st.info(f"DQN training will run all defined presets unless a specific preset name ('dqn' or one from config.yaml) is passed. Reporting for '{current_agent_run_name}'.")
-
-
+        
     with st.spinner(f'Training {agent_type} for {train_episodes} episodes...'):
         process = subprocess.Popen(
             command,
@@ -269,7 +274,7 @@ if col2.button("Stop Training"):
     st.warning("Stopping training functionality not fully implemented yet. Please restart the app or manually stop the process in your terminal if it's running.")
 
 
-# --- Live Plotting (Untouched) ---
+# --- Live Plotting (Untouched for this specific goal) ---
 st.subheader("Training Progress (Live Updates)")
 chart_placeholder = st.empty()
 
@@ -285,7 +290,7 @@ def update_plot(agent_name_for_plot):
             elif 'ep_rew' in df.columns:
                 reward_col = 'ep_rew'
             else:
-                reward_col = df.columns[2] # Fallback, might be incorrect
+                reward_col = df.columns[2] # Fallback
             
             ma_window = 100
             df['moving_average'] = df[reward_col].rolling(window=ma_window, min_periods=1).mean()
@@ -310,6 +315,7 @@ if 'trigger_plot_update' not in st.session_state:
 if 'run_completed' not in st.session_state:
     st.session_state.run_completed = False
 if 'trained_agent_name' not in st.session_state:
+    # Uses agent_cfg_key defined above
     st.session_state.trained_agent_name = agent_cfg_key
 
 if st.session_state.trigger_plot_update or st.session_state.run_completed:
@@ -322,10 +328,11 @@ st.subheader("Play Trained Agent with Dynamic Environment")
 
 # --- Model Selection Logic (Modified to find models in 'results' for now) ---
 all_potential_models = []
-# Check the 'results' folder for models (this will be on Streamlit Cloud after training there)
+# Check the 'results' folder directly for models (this will be on Streamlit Cloud after training there)
 results_dir = os.path.join(project_root, 'results')
 if os.path.exists(results_dir):
     for f in os.listdir(results_dir):
+        # Uses agent_cfg_key defined above
         if f.endswith('.pth') and (f.startswith(f'best_{agent_cfg_key}') or (agent_type == "DQN" and f.startswith('best_dqn_'))):
             full_path = os.path.join(results_dir, f)
             all_potential_models.append(full_path)
@@ -335,11 +342,13 @@ filtered_models = []
 for model_path in all_potential_models:
     model_basename = os.path.basename(model_path)
     if agent_type == "DQN":
+        # Uses dqn_preset_name defined above
         if dqn_preset_name == "base_dqn" and model_basename == "best_dqn.pth":
             filtered_models.append(model_path)
         elif dqn_preset_name != "base_dqn" and model_basename == f"best_dqn_{dqn_preset_name}.pth":
             filtered_models.append(model_path)
     else: # A2C or PPO
+        # Uses agent_cfg_key defined above
         if model_basename == f"best_{agent_cfg_key}.pth":
             filtered_models.append(model_path)
 
@@ -354,6 +363,7 @@ selected_model_from_dropdown = st.selectbox(
     options=filtered_models,
     index=0 if filtered_models else None,
     format_func=lambda x: os.path.basename(x) if x else "No models found",
+    # Uses dqn_preset_name defined above
     help=f"Models for {agent_type} (and preset '{dqn_preset_name}' if DQN) found in '{os.path.basename(results_dir)}/'."
 )
 
@@ -381,6 +391,7 @@ if st.button("Run Playback"):
         try:
             # Update config file for play_agent.py
             temp_config = config.copy()
+            # Uses agent_cfg_key defined above
             temp_config['play_agent_type'] = agent_cfg_key
             temp_config['load_model_path'] = os.path.relpath(actual_model_path_for_play, project_root)
             temp_config['episodes_to_play'] = num_play_episodes
