@@ -11,3 +11,4 @@ imageio
 imageio-ffmpeg
 swig                  
 gymnasium[box2d]  
+moviepy 
