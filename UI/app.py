@@ -41,7 +41,7 @@ st.sidebar.subheader("Environment Physics/Parameters")
 if 'environment_params' not in config:
     config['environment_params'] = {}
     
-if env_name == "LunarLander-v2": # Or "LunarLander-v3"
+if env_name == "LunarLander-v3": # Or "LunarLander-v3"
     # Ensure default parameters exist in config for the selected env
     if env_name not in config['environment_params']:
         config['environment_params'][env_name] = {
