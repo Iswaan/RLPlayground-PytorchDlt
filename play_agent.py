@@ -45,9 +45,6 @@ if "LunarLander" in env_name: # Check if it's a LunarLander environment
     if 'enable_wind' in env_params and env_params['enable_wind']:
         env_kwargs['enable_wind'] = True
         env_kwargs['wind_power'] = env_params.get('wind_power', 0.0)
-    # Note: LunarLander-v2 and -v3 natively support these kwargs.
-    # If using a custom environment that wraps LunarLander, ensure its __init__
-    # method accepts and passes these kwargs.
 
 try:
     # Pass render_mode and environment-specific kwargs to gym.make
@@ -108,7 +105,8 @@ for ep in range(episodes_to_play_count):
     while not done:
         action = agent.act(state) # Agent acts deterministically because network.eval() is set
 
-        next_state, reward, terminated, truncated, _ = env.step(action) # MODIFIED: Use original 'env' here for consistency, or env_to_play.step() if wrapper handles it
+        # --- CRITICAL FIX: Step the wrapped environment, NOT the base environment ---
+        next_state, reward, terminated, truncated, _ = env_to_play.step(action)
         done = terminated or truncated # Episode ends if terminated OR truncated
 
         total_reward += reward
@@ -121,12 +119,19 @@ for ep in range(episodes_to_play_count):
 
     print(f"Episode {ep + 1}: Reward = {total_reward:.2f}, Steps = {steps}")
 
-env.close() # Close the environment
+# --- MODIFIED: Explicitly close the wrapped environment if it was used for recording ---
+if record_video_flag and env_to_play is not None:
+    try:
+        env_to_play.close() # This should trigger the video finalization
+        print("Video wrapper explicitly closed.")
+    except Exception as e:
+        print(f"Error closing video wrapper: {e}")
+env.close() # Always close the base environment as well
 print("Playback complete.")
 
 # --- Crucial: Print the path to the recorded video for Streamlit to capture ---
 if record_video_flag and video_dir:
-    time.sleep(1) # Give the system a moment to finalize the video file
+    time.sleep(2) # <--- INCREASED SLEEP: Give it a bit more time to finalize the file
     mp4_files = sorted(glob.glob(os.path.join(video_dir, "*.mp4")))
     if mp4_files:
         print(f"VIDEO_PATH_FOR_STREAMLIT: {mp4_files[0]}")
