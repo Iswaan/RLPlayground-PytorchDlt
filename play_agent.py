@@ -4,11 +4,9 @@ import yaml
 import os
 import time
 import glob
-# --- Corrected import for video wrapper ---
 from utils.video_utils import record_video_wrapper # Ensure this matches your utils/video_utils.py
 
 # Load config from the project root (assuming play_agent.py is in project root)
-# This also needs adjustment if play_agent.py is moved, but currently it's not.
 config_path = os.path.join(os.path.dirname(__file__), 'config.yaml')
 with open(config_path) as f:
     config = yaml.safe_load(f)
@@ -17,7 +15,8 @@ with open(config_path) as f:
 env_name = config['env_name']
 agent_name = config.get('play_agent_type', 'ppo').lower()
 device = config['device']
-model_path = config.get('load_model_path', f'results/best_{agent_name}.pth')
+model_path = config.get('load_model_path', f'results/best_{agent_name}.pth') # Default still points to results/
+                                                                                # UI will provide path from pre_trained_models/
 
 # IMPORTANT: render_mode and record_video_flag are now controlled by the Streamlit app via config
 render_mode = config.get('render_mode', "human")
@@ -109,7 +108,7 @@ for ep in range(episodes_to_play_count):
     while not done:
         action = agent.act(state) # Agent acts deterministically because network.eval() is set
 
-        next_state, reward, terminated, truncated, _ = env_to_play.step(action)
+        next_state, reward, terminated, truncated, _ = env.step(action) # MODIFIED: Use original 'env' here for consistency, or env_to_play.step() if wrapper handles it
         done = terminated or truncated # Episode ends if terminated OR truncated
 
         total_reward += reward
@@ -128,8 +127,6 @@ print("Playback complete.")
 # --- Crucial: Print the path to the recorded video for Streamlit to capture ---
 if record_video_flag and video_dir:
     time.sleep(1) # Give the system a moment to finalize the video file
-    # Find the actual .mp4 files created. Assuming we want the first one for simplicity.
     mp4_files = sorted(glob.glob(os.path.join(video_dir, "*.mp4")))
     if mp4_files:
-        # Print a unique tag so Streamlit can easily extract the path from stdout
         print(f"VIDEO_PATH_FOR_STREAMLIT: {mp4_files[0]}")

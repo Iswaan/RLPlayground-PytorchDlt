@@ -7,6 +7,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import time
 import json
+import numpy as np # Needed for np.mean in playback rewards
 from datetime import datetime
 
 # Add the project root to the Python path to import agents and utils
@@ -39,7 +40,9 @@ config['env_name'] = env_name # Update config dynamically
 st.sidebar.subheader("Environment Physics/Parameters")
 if 'environment_params' not in config:
     config['environment_params'] = {}
+    
 if env_name == "LunarLander-v2": # Or "LunarLander-v3"
+    # Ensure default parameters exist in config for the selected env
     if env_name not in config['environment_params']:
         config['environment_params'][env_name] = {
             'gravity': -10.0,
@@ -67,6 +70,8 @@ elif env_name == "CartPole-v1":
     # Add CartPole specific parameters here if needed in the future
 
 # --- Global Training Parameters ---
+# These parameters are for the "Start Training" section, which you can choose to use or ignore
+# if you only care about playback.
 st.sidebar.header("Global Training Parameters")
 train_episodes = st.sidebar.number_input(
     "Total Training Episodes",
@@ -94,28 +99,35 @@ agent_type = st.selectbox(
     ["DQN", "A2C", "PPO"]
 )
 
-# --- Hyperparameter Input (Agent-Specific) ---
-st.subheader(f"{agent_type} Hyperparameters")
+# Define agent_cfg_key based on agent_type
 agent_cfg_key = agent_type.lower()
-current_agent_config = config.get(agent_cfg_key, {})
+
+
+# --- Hyperparameter Input (Agent-Specific) - Only for training, won't affect playback ---
+st.subheader(f"{agent_type} Hyperparameters (for training)")
+# This section is mostly for when you run the "Start Training" button.
+# It will dynamically load / save to config.yaml if you change values.
+# It will NOT affect the "Play Trained Agent" section which loads pre-trained models.
+
+if agent_cfg_key not in config:
+    config[agent_cfg_key] = {}
+current_agent_config_dict = config[agent_cfg_key]
 
 if agent_type == "DQN":
-    # Presets dropdown
     dqn_preset_name = st.selectbox(
-        "DQN Preset",
-        ["base_dqn", "stability_first", "fast_learning"], # "base_dqn" implies using global dqn params
+        "DQN Preset (for training)", # Clarify purpose
+        ["base_dqn", "stability_first", "fast_learning"],
         index=0
     )
 
     if dqn_preset_name != "base_dqn":
-        # Ensure 'presets' and specific preset exist
         if 'presets' not in config: config['presets'] = {}
         if dqn_preset_name not in config['presets']: config['presets'][dqn_preset_name] = {'dqn': {}}
         if 'dqn' not in config['presets'][dqn_preset_name]: config['presets'][dqn_preset_name]['dqn'] = {}
         dqn_conf = config['presets'][dqn_preset_name]['dqn']
     else:
         if 'dqn' not in config: config['dqn'] = {}
-        dqn_conf = config['dqn'] # Use the main dqn block
+        dqn_conf = config['dqn']
 
     st.write(f"Parameters for {dqn_preset_name}:")
     dqn_lr = st.number_input("Learning Rate (DQN)", value=float(dqn_conf.get('lr', 2.5e-4)), format="%e")
@@ -164,13 +176,13 @@ if agent_type == "DQN":
 
 elif agent_type == "A2C":
     if 'a2c' not in config: config['a2c'] = {}
-    current_agent_config = config['a2c'] # Re-assign to directly modify config['a2c']
-    a2c_lr = st.number_input("Learning Rate (A2C)", value=float(current_agent_config.get('lr', 7e-4)), format="%e")
-    a2c_gamma = st.slider("Gamma (A2C)", value=float(current_agent_config.get('gamma', 0.99)), min_value=0.0, max_value=1.0, step=0.01)
-    a2c_activation = st.selectbox("Activation (A2C)", ["Tanh", "ReLU"], index=0 if current_agent_config.get('activation', 'Tanh') == 'Tanh' else 1)
-    a2c_value_coef = st.number_input("Value Coefficient (A2C)", value=float(current_agent_config.get('value_coef', 0.5)), min_value=0.0, step=0.01)
-    a2c_entropy_coef = st.number_input("Entropy Coefficient (A2C)", value=float(current_agent_config.get('entropy_coef', 0.01)), min_value=0.0, step=0.001, format="%f")
-
+    current_agent_config_dict = config['a2c']
+    a2c_lr = st.number_input("Learning Rate (A2C)", value=float(current_agent_config_dict.get('lr', 7e-4)), format="%e")
+    a2c_gamma = st.slider("Gamma (A2C)", value=float(current_agent_config_dict.get('gamma', 0.99)), min_value=0.0, max_value=1.0, step=0.01)
+    a2c_activation = st.selectbox("Activation (A2C)", ["Tanh", "ReLU"], index=0 if current_agent_config_dict.get('activation', 'Tanh') == 'Tanh' else 1)
+    a2c_value_coef = st.number_input("Value Coefficient (A2C)", value=float(current_agent_config_dict.get('value_coef', 0.5)), min_value=0.0, step=0.01)
+    a2c_entropy_coef = st.number_input("Entropy Coefficient (A2C)", value=float(current_agent_config_dict.get('entropy_coef', 0.01)), min_value=0.0, step=0.001, format="%f")
+    
     config['a2c']['lr'] = a2c_lr
     config['a2c']['gamma'] = a2c_gamma
     config['a2c']['activation'] = a2c_activation
@@ -179,17 +191,17 @@ elif agent_type == "A2C":
 
 elif agent_type == "PPO":
     if 'ppo' not in config: config['ppo'] = {}
-    current_agent_config = config['ppo'] # Re-assign to directly modify config['ppo']
-    ppo_lr = st.number_input("Learning Rate (PPO)", value=float(current_agent_config.get('lr', 3e-4)), format="%e")
-    ppo_gamma = st.slider("Gamma (PPO)", value=float(current_agent_config.get('gamma', 0.99)), min_value=0.0, max_value=1.0, step=0.01)
-    ppo_n_steps = st.number_input("N Steps (PPO)", value=int(current_agent_config.get('n_steps', 2048)), min_value=32, step=32)
-    ppo_n_epochs = st.number_input("N Epochs (PPO)", value=int(current_agent_config.get('n_epochs', 10)), min_value=1, step=1)
-    ppo_batch_size = st.number_input("Batch Size (PPO)", value=int(current_agent_config.get('batch_size', 64)), min_value=16, step=16)
-    ppo_clip_epsilon = st.number_input("Clip Epsilon (PPO)", value=float(current_agent_config.get('clip_epsilon', 0.2)), min_value=0.0, max_value=0.5, step=0.01)
-    ppo_gae_lambda = st.number_input("GAE Lambda (PPO)", value=float(current_agent_config.get('gae_lambda', 0.95)), min_value=0.0, max_value=1.0, step=0.01)
-    ppo_ent_coef = st.number_input("Entropy Coefficient (PPO)", value=float(current_agent_config.get('ent_coef', 0.01)), min_value=0.0, step=0.001, format="%f")
-    ppo_activation = st.selectbox("Activation (PPO)", ["ReLU", "Tanh"], index=0 if current_agent_config.get('activation', 'ReLU') == 'ReLU' else 1)
-
+    current_agent_config_dict = config['ppo']
+    ppo_lr = st.number_input("Learning Rate (PPO)", value=float(current_agent_config_dict.get('lr', 3e-4)), format="%e")
+    ppo_gamma = st.slider("Gamma (PPO)", value=float(current_agent_config_dict.get('gamma', 0.99)), min_value=0.0, max_value=1.0, step=0.01)
+    ppo_n_steps = st.number_input("N Steps (PPO)", value=int(current_agent_config_dict.get('n_steps', 2048)), min_value=32, step=32)
+    ppo_n_epochs = st.number_input("N Epochs (PPO)", value=int(current_agent_config_dict.get('n_epochs', 10)), min_value=1, step=1)
+    ppo_batch_size = st.number_input("Batch Size (PPO)", value=int(current_agent_config_dict.get('batch_size', 64)), min_value=16, step=16)
+    ppo_clip_epsilon = st.number_input("Clip Epsilon (PPO)", value=float(current_agent_config_dict.get('clip_epsilon', 0.2)), min_value=0.0, max_value=0.5, step=0.01)
+    ppo_gae_lambda = st.number_input("GAE Lambda (PPO)", value=float(current_agent_config_dict.get('gae_lambda', 0.95)), min_value=0.0, max_value=1.0, step=0.01)
+    ppo_ent_coef = st.number_input("Entropy Coefficient (PPO)", value=float(current_agent_config_dict.get('ent_coef', 0.01)), min_value=0.0, step=0.001, format="%f")
+    ppo_activation = st.selectbox("Activation (PPO)", ["ReLU", "Tanh"], index=0 if current_agent_config_dict.get('activation', 'ReLU') == 'ReLU' else 1)
+    
     config['ppo']['lr'] = ppo_lr
     config['ppo']['gamma'] = ppo_gamma
     config['ppo']['n_steps'] = ppo_n_steps
@@ -197,53 +209,54 @@ elif agent_type == "PPO":
     config['ppo']['batch_size'] = ppo_batch_size
     config['ppo']['clip_epsilon'] = ppo_clip_epsilon
     config['ppo']['gae_lambda'] = ppo_gae_lambda
-    config['ppo']['ent_coef'] = ppo_ent_coef # Fixed typo here as well
+    config['ppo']['ent_coef'] = ppo_ent_coef
     config['ppo']['activation'] = ppo_activation
 
 
-# --- Training Controls ---
+# --- Training Controls (Untouched) ---
 st.subheader("Training Control")
 col1, col2 = st.columns(2)
-
 if col1.button("Start Training"):
-    # Save the current config to config.yaml before starting the process
+    # Save the current config settings (including dynamic env params) to config.yaml
     with open(CONFIG_PATH, 'w') as f:
         yaml.dump(config, f, default_flow_style=False)
     
     st.text(f"Starting {agent_type} training for {train_episodes} episodes on {env_name}...")
-    
+
     script_to_run = f"train_{agent_cfg_key}.py"
     command = [sys.executable, os.path.join(project_root, script_to_run)]
-    
+
     current_agent_run_name = agent_cfg_key
     if agent_type == "DQN":
         if dqn_preset_name != "base_dqn":
             command.extend(["--preset_name", dqn_preset_name])
             current_agent_run_name = f"dqn_{dqn_preset_name}"
         else:
-            st.info("DQN training will run all defined presets. Showing results for the base DQN config.")
-            current_agent_run_name = "dqn" # Default agent_name for base DQN
-    
+            current_agent_run_name = "dqn"
+            
+        st.info(f"DQN training will run all defined presets unless a specific preset name ('dqn' or one from config.yaml) is passed. Reporting for '{current_agent_run_name}'.")
+
+
     with st.spinner(f'Training {agent_type} for {train_episodes} episodes...'):
         process = subprocess.Popen(
             command,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
-            bufsize=1, # Line-buffered output
-            cwd=project_root # Set current working directory to project root for subprocess
+            bufsize=1,
+            cwd=project_root
         )
         
         output_placeholder = st.empty()
         full_output = []
         for line in process.stdout:
             full_output.append(line)
-            output_placeholder.text("".join(full_output[-10:])) # Show last 10 lines
+            output_placeholder.text("".join(full_output[-10:]))
             if "[EVAL]" in line:
-                st.session_state.trigger_plot_update = True # Trigger plot update
+                st.session_state.trigger_plot_update = True
 
         process.wait()
-    
+
     if process.returncode == 0:
         st.success(f"{agent_type} Training Complete!")
         st.session_state.run_completed = True
@@ -255,14 +268,15 @@ if col1.button("Start Training"):
 if col2.button("Stop Training"):
     st.warning("Stopping training functionality not fully implemented yet. Please restart the app or manually stop the process in your terminal if it's running.")
 
-# --- Live Plotting ---
+
+# --- Live Plotting (Untouched) ---
 st.subheader("Training Progress (Live Updates)")
 chart_placeholder = st.empty()
 
 def update_plot(agent_name_for_plot):
     csv_path = os.path.join(config['save_dir'], f'{agent_name_for_plot}_rollouts.csv')
     abs_csv_path = os.path.join(project_root, csv_path)
-
+    
     if os.path.exists(abs_csv_path):
         try:
             df = pd.read_csv(abs_csv_path)
@@ -271,7 +285,7 @@ def update_plot(agent_name_for_plot):
             elif 'ep_rew' in df.columns:
                 reward_col = 'ep_rew'
             else:
-                reward_col = df.columns[2]
+                reward_col = df.columns[2] # Fallback, might be incorrect
             
             ma_window = 100
             df['moving_average'] = df[reward_col].rolling(window=ma_window, min_periods=1).mean()
@@ -302,60 +316,83 @@ if st.session_state.trigger_plot_update or st.session_state.run_completed:
     update_plot(st.session_state.trained_agent_name)
     st.session_state.trigger_plot_update = False
 
+
 # --- Play Trained Agent with Visuals and Dynamic Environment ---
 st.subheader("Play Trained Agent with Dynamic Environment")
 
-# Text input for model path, defaulting to the best model for the selected agent type
-default_model_filename = f"best_{agent_cfg_key}.pth"
-default_model_path_relative = os.path.join(config['save_dir'], default_model_filename)
-abs_default_model_path = os.path.join(project_root, default_model_path_relative)
+# --- Model Selection Logic (Modified to find models in 'results' for now) ---
+all_potential_models = []
+# Check the 'results' folder for models (this will be on Streamlit Cloud after training there)
+results_dir = os.path.join(project_root, 'results')
+if os.path.exists(results_dir):
+    for f in os.listdir(results_dir):
+        if f.endswith('.pth') and (f.startswith(f'best_{agent_cfg_key}') or (agent_type == "DQN" and f.startswith('best_dqn_'))):
+            full_path = os.path.join(results_dir, f)
+            all_potential_models.append(full_path)
 
-# Check if a specific preset was trained and prioritize its best model
-if agent_type == "DQN" and dqn_preset_name != "base_dqn":
-    preset_model_filename = f"best_dqn_{dqn_preset_name}.pth"
-    preset_model_path_relative = os.path.join(config['save_dir'], preset_model_filename)
-    abs_preset_model_path = os.path.join(project_root, preset_model_path_relative)
-    if os.path.exists(abs_preset_model_path):
-        play_model_path_value = abs_preset_model_path
-    else:
-        play_model_path_value = abs_default_model_path
-        st.warning(f"Best model for preset '{dqn_preset_name}' not found. Defaulting to generic '{default_model_filename}'.")
-else:
-    play_model_path_value = abs_default_model_path
+# Filter and sort models for the specific agent type and preset
+filtered_models = []
+for model_path in all_potential_models:
+    model_basename = os.path.basename(model_path)
+    if agent_type == "DQN":
+        if dqn_preset_name == "base_dqn" and model_basename == "best_dqn.pth":
+            filtered_models.append(model_path)
+        elif dqn_preset_name != "base_dqn" and model_basename == f"best_dqn_{dqn_preset_name}.pth":
+            filtered_models.append(model_path)
+    else: # A2C or PPO
+        if model_basename == f"best_{agent_cfg_key}.pth":
+            filtered_models.append(model_path)
 
+filtered_models = sorted(list(set(filtered_models)), key=lambda x: os.path.basename(x).lower())
 
-play_model_path = st.text_input(
-    "Path to Model (.pth)",
-    value=play_model_path_value,
-    help="Path to the .pth model file. Must be relative to the project root or an absolute path."
+initial_model_selection = ""
+if filtered_models:
+    initial_model_selection = filtered_models[0]
+
+selected_model_from_dropdown = st.selectbox(
+    "Select Available Model (.pth)",
+    options=filtered_models,
+    index=0 if filtered_models else None,
+    format_func=lambda x: os.path.basename(x) if x else "No models found",
+    help=f"Models for {agent_type} (and preset '{dqn_preset_name}' if DQN) found in '{os.path.basename(results_dir)}/'."
 )
+
+manual_model_path_input = st.text_input(
+    "Or Manually Enter Model Path (.pth)",
+    value=selected_model_from_dropdown if selected_model_from_dropdown else "",
+    help="Enter the full path to a .pth model file. This overrides the dropdown selection."
+)
+
+final_play_model_path = manual_model_path_input if manual_model_path_input else (selected_model_from_dropdown if selected_model_from_dropdown else "")
+# --- END Model Selection Logic ---
+
 
 num_play_episodes = st.number_input("Number of Playback Episodes", min_value=1, max_value=10, value=1, step=1)
 record_play_video = st.checkbox("Record Playback Video (displays in UI)", value=True)
 
 if st.button("Run Playback"):
-    actual_model_path_for_play = play_model_path if os.path.isabs(play_model_path) else os.path.join(project_root, play_model_path)
-
+    actual_model_path_for_play = final_play_model_path
+    
     if not os.path.exists(actual_model_path_for_play):
         st.error(f"Model file not found at: {actual_model_path_for_play}")
     else:
-        st.info(f"Initiating playback for {actual_model_path_for_play} on {env_name}...")
+        st.info(f"Initiating playback for {os.path.basename(actual_model_path_for_play)} on {env_name}...")
         
         try:
-            # Prepare temporary config for play_agent.py
+            # Update config file for play_agent.py
             temp_config = config.copy()
             temp_config['play_agent_type'] = agent_cfg_key
-            temp_config['load_model_path'] = os.path.relpath(actual_model_path_for_play, project_root) # Relative path for play_agent.py
+            temp_config['load_model_path'] = os.path.relpath(actual_model_path_for_play, project_root)
             temp_config['episodes_to_play'] = num_play_episodes
 
             if record_play_video:
-                temp_config['render_mode'] = "rgb_array" # Essential for recording frames
+                temp_config['render_mode'] = "rgb_array"
                 temp_config['record_video'] = True
             else:
-                temp_config['render_mode'] = "human" # If not recording for UI, attempt human render (local only)
+                temp_config['render_mode'] = "human" # 'human' might not work on Streamlit Cloud
                 temp_config['record_video'] = False
 
-            # Save the temporary config to config.yaml (overwriting for this run)
+            # Write the temporary config settings
             with open(CONFIG_PATH, 'w') as f:
                 yaml.dump(temp_config, f, default_flow_style=False)
 
@@ -370,7 +407,7 @@ if st.button("Run Playback"):
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
                     text=True,
-                    bufsize=1, # Line-buffered output
+                    bufsize=1,
                     cwd=project_root
                 )
                 
@@ -379,14 +416,14 @@ if st.button("Run Playback"):
 
                 for line in play_process.stdout:
                     full_play_output.append(line)
-                    play_output_placeholder.text("".join(full_play_output[-5:])) # Show last 5 lines
+                    play_output_placeholder.text("".join(full_play_output[-5:]))
 
+                    # Look for the specific output line from play_agent.py
                     if "VIDEO_PATH_FOR_STREAMLIT:" in line:
                         recorded_video_path = line.split("VIDEO_PATH_FOR_STREAMLIT:")[1].strip()
                         st.success(f"Video recorded to: {recorded_video_path}")
-                        # No break here, let the process continue to log episode results
 
-                play_process.wait() # Wait for the playback process to finish
+                play_process.wait()
 
             if play_process.returncode == 0:
                 st.success("Playback Complete!")
@@ -399,14 +436,14 @@ if st.button("Run Playback"):
                 elif record_play_video:
                     st.warning("Video recording was enabled but no .mp4 file found. Check logs for errors.")
                 
-                # Display final rewards from playback
+                # Parse rewards from output
                 final_rewards = [float(l.split("Reward = ")[1].split(",")[0]) for l in full_play_output if "Episode" in l and "Reward =" in l]
                 if final_rewards:
                     st.write(f"**Playback Rewards:** {', '.join([f'{r:.2f}' for r in final_rewards])}")
                     st.write(f"**Mean Playback Reward:** {np.mean(final_rewards):.2f}")
             else:
                 st.error(f"Playback Failed! Check logs above for details.")
-                st.text("".join(full_play_output)) # Show all output if error
+                st.text("".join(full_play_output))
 
         except Exception as e:
             st.error(f"An unexpected error occurred during playback: {e}")
