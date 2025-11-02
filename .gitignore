@@ -28,7 +28,7 @@ results/
 *.pkl
 *.bin
 *.model
-!requirements.txt 
+
 # Jupyter Notebook specific files
 .ipynb_checkpoints/
 *.ipynb
@@ -36,3 +36,6 @@ results/
 # Streamlit specific (optional, e.g., if you have local secrets)
 .streamlit/
 
+# EXPLICITLY UN-IGNORE THESE (CRUCIAL for deployment)
+!requirements.txt
+!pre_trained_models/   # <--- ADDED: Allow this specific folder to be committed
