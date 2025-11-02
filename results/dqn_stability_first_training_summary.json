@@ -1,0 +1,11 @@
+{
+  "agent": "dqn_stability_first",
+  "timestamp": "2025-11-02T04:51:13.337690",
+  "num_episodes": 1450,
+  "mean_reward": 59.28230667114258,
+  "median_reward": 120.032958984375,
+  "std_reward": 205.45147705078125,
+  "var_reward": 42210.3125,
+  "min_reward": -657.6232299804688,
+  "max_reward": 316.7182922363281
+}

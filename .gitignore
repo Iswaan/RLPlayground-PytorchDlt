@@ -5,37 +5,38 @@ __pycache__/
 *.o
 *.so
 
-# Editor files (optional, but common)
+# Editor files
 *~
-.DS_Store # macOS specific
-.vscode/ # VS Code settings if you use it
+.DS_Store
+.vscode/
 
-# Environment files (adjust if your venv is named differently)
+# Environment files
 .venv/
 venv/
 env/
-.env # Common for environment variables
+.env
 
-# Data and results (CRUCIAL: ignores your training outputs)
-results/
-*.csv
-*.log
-.json
-*.txt
-*.pth
-*.pt
-*.mp4
-*.pkl
-*.bin
-*.model
+# CRITICAL: We want to include the results folder for deployment.
+# Therefore, ensure the 'results/' line and related patterns are commented out.
+# Any specific file/folder that is explicitly NOT ignored (e.g., !requirements.txt)
+# will take precedence over general ignore patterns (e.g., *.pth).
 
-# Jupyter Notebook specific files
-.ipynb_checkpoints/
-*.ipynb
-
-# Streamlit specific (optional, e.g., if you have local secrets)
-.streamlit/
+# IGNORE these general file types by default, BUT specific files/folders below will override
+# *.csv
+# *.log
+# *.json
+# *.txt
+# *.pth
+# *.pt
+# *.mp4
+# *.pkl
+# *.bin
+# *.model
 
 # EXPLICITLY UN-IGNORE THESE (CRUCIAL for deployment)
-!requirements.txt
-!pre_trained_models/   # <--- ADDED: Allow this specific folder to be committed
+!requirements.txt        # Always commit your dependencies list
+
+# IMPORTANT: To make 'results/' work, we must explicitly allow it.
+# The default 'results/' line would have ignored it.
+!results/                # <--- CRITICAL: Explicitly allow the results/ folder
+!results/*               # <--- CRITICAL: Allow all contents within results/

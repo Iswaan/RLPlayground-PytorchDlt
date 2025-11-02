@@ -1,0 +1,11 @@
+{
+  "agent": "dqn_fast_learning",
+  "timestamp": "2025-11-02T05:11:37.045897",
+  "num_episodes": 1450,
+  "mean_reward": 136.97903442382812,
+  "median_reward": 234.665283203125,
+  "std_reward": 168.74185180664062,
+  "var_reward": 28473.810546875,
+  "min_reward": -602.311279296875,
+  "max_reward": 327.3953857421875
+}

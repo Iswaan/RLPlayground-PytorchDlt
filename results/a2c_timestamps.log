@@ -1,0 +1,8 @@
+2025-11-01T06:47:54.306621 | episode 200 | elapsed_seconds 10.93
+2025-11-01T06:48:02.051687 | episode 400 | elapsed_seconds 18.68
+2025-11-01T06:48:09.109927 | episode 600 | elapsed_seconds 25.74
+2025-11-01T06:48:16.754696 | episode 800 | elapsed_seconds 33.38
+2025-11-01T06:48:23.749549 | episode 1000 | elapsed_seconds 40.38
+2025-11-01T06:48:31.919341 | episode 1200 | elapsed_seconds 48.55
+2025-11-01T06:48:45.491219 | episode 1400 | elapsed_seconds 62.12
+FINAL SUMMARY | 2025-11-01T06:48:49.187569 | episodes 2900 | mean_reward -555.6113 | std_reward 249.2422 | elapsed_seconds 65.82
