@@ -197,7 +197,7 @@ elif agent_type == "PPO":
     config['ppo']['batch_size'] = ppo_batch_size
     config['ppo']['clip_epsilon'] = ppo_clip_epsilon
     config['ppo']['gae_lambda'] = ppo_gae_lambda
-    config['ppo']['ent_coef'] = pppo_ent_coef # Fixed typo here as well
+    config['ppo']['ent_coef'] = ppo_ent_coef # Fixed typo here as well
     config['ppo']['activation'] = ppo_activation
 
 
