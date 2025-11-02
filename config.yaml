@@ -1,0 +1,69 @@
+env_name: "LunarLander-v3"
+device: "cpu"
+train_episodes: 1450
+max_timesteps_per_episode: 1000
+seed: 42
+save_dir: "results"
+
+logging:
+  checkpoint_every: 100
+  eval_every: 50
+  eval_episodes: 5
+
+dqn:
+  hidden_layers: [128, 128]
+  lr: 2.5e-4
+  batch_size: 256
+  buffer_size: 200000
+  min_replay_size: 20000
+  gamma: 0.99
+  tau: 1e-3
+  update_every: 4
+  double_dqn: true
+  clip_grad: 0.5
+  epsilon_start: 1.0
+  epsilon_end: 0.01
+  epsilon_decay: 0.997
+  target_update_every: 1000
+
+presets:
+  stability_first:
+    dqn:
+      hidden_layers: [128, 128]
+      lr: 2.5e-4
+      batch_size: 256
+      buffer_size: 200000
+      min_replay_size: 20000
+      update_every: 4
+      tau: 1e-3
+      clip_grad: 0.5
+  fast_learning:
+    dqn:
+      hidden_layers: [128, 128]
+      lr: 5e-4
+      batch_size: 128
+      buffer_size: 100000
+      min_replay_size: 5000
+      update_every: 1
+
+# PPO defaults (used by train_ppo.py when ppo block is present)
+ppo:
+  hidden_layers: [128, 128]
+  lr: 0.0003
+  gamma: 0.99
+  clip_epsilon: 0.2
+  n_steps: 2048
+  n_epochs: 10
+  batch_size: 64
+  activation: "ReLU"
+  gae_lambda: 0.95    # <--- ADD THIS
+  ent_coef: 0.01  
+
+# A2C defaults (train_a2c.py will use these if a2c block missing)
+a2c:
+  hidden_layers: [128, 128]
+  lr: 7e-4
+  gamma: 0.99
+  activation: "Tanh"
+  value_coef: 0.5    # <-- ADD THIS (Weight for value loss, 0.5 is standard)
+  entropy_coef: 0.01 # <-- ADD THIS (Weight for entropy bonus, 0.01 is standard)

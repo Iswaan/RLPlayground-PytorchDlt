@@ -1,0 +1,38 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyd
+*.o
+*.so
+
+# Editor files (optional, but common)
+*~
+.DS_Store # macOS specific
+.vscode/ # VS Code settings if you use it
+
+# Environment files (adjust if your venv is named differently)
+.venv/
+venv/
+env/
+.env # Common for environment variables
+
+# Data and results (CRUCIAL: ignores your training outputs)
+results/
+*.csv
+*.log
+*.json
+*.txt
+*.pth
+*.pt
+*.mp4
+*.pkl
+*.bin
+*.model
+
+# Jupyter Notebook specific files
+.ipynb_checkpoints/
+*.ipynb
+
+# Streamlit specific (optional, e.g., if you have local secrets)
+.streamlit/
+
