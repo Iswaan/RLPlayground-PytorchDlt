@@ -26,17 +26,23 @@ import yaml
 from agents.dqn_agent import DQNAgent
 
 def record_video_wrapper(env, env_name, agent_name, video_folder='results/videos', episodes_to_record=1):
+    """
+    Wraps an environment with gym.wrappers.RecordVideo to save gameplay to a file.
+    Returns the wrapped environment and the base directory where videos will be saved.
+    """
     run_id = time.strftime("%Y%m%d-%H%M%S")
-    video_path = os.path.join(video_folder, f'{agent_name}-{env_name}-{run_id}')
-    os.makedirs(video_path, exist_ok=True)
+    # Video folder is inside the project root's results directory
+    # Ensure 'results' exists relative to where the script is run (project_root)
+    full_video_folder = os.path.join('results', video_folder, f'{agent_name}-{env_name}-{run_id}')
+    os.makedirs(full_video_folder, exist_ok=True)
     wrapped_env = gym.wrappers.RecordVideo(
         env,
-        video_folder=video_path,
+        video_folder=full_video_folder,
         episode_trigger=lambda episode_id: episode_id < episodes_to_record,
-        disable_logger=True
+        disable_logger=True # Suppress gym's default video logger output
     )
-    print(f"Recording enabled; videos will be saved to: {video_path}")
-    return wrapped_env, video_path
+    print(f"Recording enabled; videos will be saved to: {full_video_folder}")
+    return wrapped_env, full_video_folder
 
 def build_agent_from_config(state_size, action_size, device="cpu"):
     # load config.yaml

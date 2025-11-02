@@ -56,8 +56,8 @@ ppo:
   n_epochs: 10
   batch_size: 64
   activation: "ReLU"
-  gae_lambda: 0.95    # <--- ADD THIS
-  ent_coef: 0.01  
+  gae_lambda: 0.95 # <--- ADD THIS
+  ent_coef: 0.01
 
 # A2C defaults (train_a2c.py will use these if a2c block missing)
 a2c:
@@ -65,5 +65,14 @@ a2c:
   lr: 7e-4
   gamma: 0.99
   activation: "Tanh"
-  value_coef: 0.5    # <-- ADD THIS (Weight for value loss, 0.5 is standard)
+  value_coef: 0.5 # <-- ADD THIS (Weight for value loss, 0.5 is standard)
   entropy_coef: 0.01 # <-- ADD THIS (Weight for entropy bonus, 0.01 is standard)
+
+environment_params:
+  LunarLander-v2: # Or LunarLander-v3 if you primarily use that
+    gravity: -10.0
+    enable_wind: False
+    wind_power: 0.0
+  CartPole-v1:
+    # Add any CartPole specific parameters here if needed
+    # e.g., pole_length: 0.5
