@@ -9,9 +9,6 @@ import time
 import json
 import numpy as np
 from datetime import datetime
-# --- ADDED: For non-blocking subprocess reading ---
-from threading import Thread
-from queue import Queue, Empty
 
 # --- Initial Setup ---
 st.set_page_config(layout="wide") 
@@ -70,22 +67,7 @@ st.title("🚀 RL Playground: A Universal Game AI Framework")
 st.markdown("Use the controls in the sidebar to configure the environment and training. Select a tab below to either play a pre-trained model or train a new one.")
 
 # --- UI LAYOUT WITH TABS ---
-if 'active_tab' not in st.session_state:
-    st.session_state.active_tab = "▶️ Play Pre-trained Model"
-
 tab_keys = ["▶️ Play Pre-trained Model", "🧠 Train New Model", "📊 View Training Logs"]
-
-# Check if a training just started to force a tab switch
-if 'just_started_training' in st.session_state and st.session_state.just_started_training:
-    st.session_state.active_tab = "📊 View Training Logs"
-    st.session_state.just_started_training = False # Reset the flag
-
-# We need to get the index of the active tab for the `default` parameter
-try:
-    default_tab_index = tab_keys.index(st.session_state.active_tab)
-except ValueError:
-    default_tab_index = 0
-
 tab_playback, tab_training, tab_logs = st.tabs(tab_keys)
 
 # --- TAB 1: PLAYBACK ---
@@ -103,7 +85,6 @@ with tab_playback:
             playback_dqn_preset = st.selectbox("DQN Preset Model", ["fast_learning", "stability_first", "base_dqn"], key="playback_preset")
 
     with col_model_select:
-        # Find available models in pre_trained_models/
         pre_trained_models_dir = os.path.join(project_root, 'pre_trained_models')
         available_models = []
         if os.path.exists(pre_trained_models_dir):
@@ -195,24 +176,25 @@ with tab_training:
     training_agent_cfg_key = training_agent_type.lower()
     
     with st.expander(f"Show/Hide {training_agent_type} Hyperparameters"):
+        # ... (All your hyperparameter widgets remain here as before) ...
         if training_agent_type == "DQN":
             if 'dqn' not in config: config['dqn'] = {}
             dqn_conf = config['dqn']
             
             st.write("Parameters for base DQN config:")
-            dqn_lr = st.number_input("Learning Rate", value=float(dqn_conf.get('lr', 2.5e-4)), format="%e", key="dqn_lr")
-            dqn_gamma = st.slider("Gamma", value=float(dqn_conf.get('gamma', 0.99)), min_value=0.0, max_value=1.0, step=0.01, key="dqn_gamma")
-            dqn_batch_size = st.number_input("Batch Size", value=int(dqn_conf.get('batch_size', 256)), min_value=16, step=16, key="dqn_bs")
-            dqn_buffer_size = st.number_input("Buffer Size", value=int(dqn_conf.get('buffer_size', 200000)), min_value=1000, step=1000, key="dqn_buf")
-            dqn_min_replay_size = st.number_input("Min Replay Size", value=int(dqn_conf.get('min_replay_size', 20000)), min_value=100, step=100, key="dqn_min_replay")
-            dqn_update_every = st.number_input("Update Every", value=int(dqn_conf.get('update_every', 4)), min_value=1, step=1, key="dqn_update")
-            dqn_tau = st.number_input("Tau", value=float(dqn_conf.get('tau', 1e-3)), format="%e", key="dqn_tau")
+            dqn_lr = st.number_input("Learning Rate (DQN)", value=float(dqn_conf.get('lr', 2.5e-4)), format="%e", key="dqn_lr")
+            dqn_gamma = st.slider("Gamma (DQN)", value=float(dqn_conf.get('gamma', 0.99)), min_value=0.0, max_value=1.0, step=0.01, key="dqn_gamma")
+            dqn_batch_size = st.number_input("Batch Size (DQN)", value=int(dqn_conf.get('batch_size', 256)), min_value=16, step=16, key="dqn_bs")
+            dqn_buffer_size = st.number_input("Buffer Size (DQN)", value=int(dqn_conf.get('buffer_size', 200000)), min_value=1000, step=1000, key="dqn_buf")
+            dqn_min_replay_size = st.number_input("Min Replay Size (DQN)", value=int(dqn_conf.get('min_replay_size', 20000)), min_value=100, step=100, key="dqn_min_replay")
+            dqn_update_every = st.number_input("Update Every (DQN)", value=int(dqn_conf.get('update_every', 4)), min_value=1, step=1, key="dqn_update")
+            dqn_tau = st.number_input("Tau (DQN)", value=float(dqn_conf.get('tau', 1e-3)), format="%e", key="dqn_tau")
             dqn_double_dqn = st.checkbox("Double DQN", value=bool(dqn_conf.get('double_dqn', True)), key="dqn_ddqn")
-            dqn_clip_grad = st.number_input("Clip Grad", value=float(dqn_conf.get('clip_grad', 0.5)), min_value=0.0, step=0.1, key="dqn_clip")
-            dqn_epsilon_start = st.number_input("Epsilon Start", value=float(dqn_conf.get('epsilon_start', 1.0)), min_value=0.0, max_value=1.0, step=0.01, key="dqn_eps_start")
-            dqn_epsilon_end = st.number_input("Epsilon End", value=float(dqn_conf.get('epsilon_end', 0.01)), min_value=0.0, max_value=1.0, step=0.001, format="%f", key="dqn_eps_end")
-            dqn_epsilon_decay = st.number_input("Epsilon Decay", value=float(dqn_conf.get('epsilon_decay', 0.997)), min_value=0.0, max_value=1.0, step=0.001, format="%f", key="dqn_eps_decay")
-            dqn_target_update_every = st.number_input("Target Update Every", value=int(dqn_conf.get('target_update_every', 1000)), min_value=1, step=100, key="dqn_target_update")
+            dqn_clip_grad = st.number_input("Clip Grad (DQN)", value=float(dqn_conf.get('clip_grad', 0.5)), min_value=0.0, step=0.1, key="dqn_clip")
+            dqn_epsilon_start = st.number_input("Epsilon Start (DQN)", value=float(dqn_conf.get('epsilon_start', 1.0)), min_value=0.0, max_value=1.0, step=0.01, key="dqn_eps_start")
+            dqn_epsilon_end = st.number_input("Epsilon End (DQN)", value=float(dqn_conf.get('epsilon_end', 0.01)), min_value=0.0, max_value=1.0, step=0.001, format="%f", key="dqn_eps_end")
+            dqn_epsilon_decay = st.number_input("Epsilon Decay (DQN)", value=float(dqn_conf.get('epsilon_decay', 0.997)), min_value=0.0, max_value=1.0, step=0.001, format="%f", key="dqn_eps_decay")
+            dqn_target_update_every = st.number_input("Target Update Every (DQN)", value=int(dqn_conf.get('target_update_every', 1000)), min_value=1, step=100, key="dqn_target_update")
             
             config['dqn']['lr'] = dqn_lr
             config['dqn']['gamma'] = dqn_gamma
@@ -265,125 +247,111 @@ with tab_training:
             config['ppo']['gae_lambda'] = ppo_gae_lambda
             config['ppo']['ent_coef'] = ppo_ent_coef
             config['ppo']['activation'] = ppo_activation
-
+    
     if st.button("Start Training", use_container_width=True, key="start_training_btn"):
         with open(CONFIG_PATH, 'w') as f:
             yaml.dump(config, f, default_flow_style=False)
         
-        st.info(f"Starting {training_agent_type} training... Logs will appear in the 'View Training Logs' tab.")
+        st.info(f"Starting {training_agent_type} training... Go to the 'View Training Logs' tab to see progress.")
         
         script_to_run = f"train_{training_agent_cfg_key}.py"
         command = [sys.executable, os.path.join(project_root, script_to_run)]
         
-        current_agent_run_name = training_agent_cfg_key
-        if training_agent_type == "DQN":
-            st.info("DQN training will run all defined presets. Reporting for the first preset.")
-            current_agent_run_name = "dqn_stability_first"
-        
+        # Start the process. It runs in the background.
         process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, cwd=project_root)
         
-        st.session_state['training_process'] = process
-        st.session_state['trained_agent_name_for_logs'] = current_agent_run_name
+        # Store the process ID (pid) and other info in session state.
+        st.session_state['training_pid'] = process.pid
+        st.session_state['trained_agent_name_for_logs'] = training_agent_cfg_key
         st.session_state['training_in_progress'] = True
         st.session_state['just_started_training'] = True
+        
+        # Create a log file for the subprocess output
+        st.session_state['log_file_path'] = os.path.join(project_root, f"training_log_{process.pid}.log")
+        
         st.rerun()
 
     if st.button("Stop Training", use_container_width=True, key="stop_training_btn"):
-        if 'training_process' in st.session_state and st.session_state['training_process']:
-            process_to_stop = st.session_state['training_process']
-            if process_to_stop.poll() is None:
-                process_to_stop.terminate()
+        if st.session_state.get('training_in_progress', False) and 'training_pid' in st.session_state:
+            try:
+                os.kill(st.session_state['training_pid'], 9) # Send SIGKILL signal
                 st.session_state['training_in_progress'] = False
-                st.success("Training process has been sent a stop signal. Check logs for final output.")
-                time.sleep(2)
+                st.session_state['training_pid'] = None
+                st.success("Training process has been sent a stop signal.")
+                time.sleep(1)
                 st.rerun()
-            else:
-                st.warning("No active training process found to stop.")
+            except ProcessLookupError:
+                st.warning("Training process already finished or could not be found.")
+                st.session_state['training_in_progress'] = False
+                st.session_state['training_pid'] = None
+            except Exception as e:
+                st.error(f"Failed to stop process: {e}")
         else:
-            st.warning("No training process has been started in this session.")
+            st.warning("No active training process found to stop.")
 
 # --- TAB 3: LOGS and PLOTS ---
 with tab_logs:
     st.header("Live Training Logs and Plots")
     
+    # Initialize session state for flags
     if 'training_in_progress' not in st.session_state:
         st.session_state['training_in_progress'] = False
+    if 'log_file_path' not in st.session_state:
+        st.session_state['log_file_path'] = None
 
     if not st.session_state['training_in_progress']:
         st.info("Start a new training run from the 'Train New Model' tab to see live logs and plots here.")
     else:
-        st.info("Training is in progress... Logs will update in real-time.")
+        st.info("Training is in progress... Click 'Refresh Logs' to see the latest output.")
 
-    log_placeholder = st.empty()
-    plot_placeholder = st.empty()
+        log_placeholder = st.empty()
+        plot_placeholder = st.empty()
 
-    if st.session_state['training_in_progress']:
-        process = st.session_state['training_process']
+        if st.button("Refresh Logs"):
+            # Read the entire log file up to the current point
+            if os.path.exists(st.session_state['log_file_path']):
+                with open(st.session_state['log_file_path'], 'r') as f:
+                    full_output = f.readlines()
+                log_placeholder.text("".join(full_output[-30:]))
+            
+            # Update plot function
+            def update_log_plot(agent_name):
+                csv_path = os.path.join(project_root, 'results', f'{agent_name}_rollouts.csv')
+                if os.path.exists(csv_path):
+                    try:
+                        df = pd.read_csv(csv_path)
+                        if not df.empty:
+                            if 'ep_reward' in df.columns:
+                                reward_col = 'ep_reward'
+                            elif 'ep_rew' in df.columns:
+                                reward_col = 'ep_rew'
+                            else:
+                                reward_col = df.columns[2]
+                            
+                            ma_window = 100
+                            df['moving_average'] = df[reward_col].rolling(window=ma_window, min_periods=1).mean()
+
+                            fig, ax = plt.subplots(figsize=(10, 6))
+                            ax.plot(df['episode'], df[reward_col], label='Episode reward', alpha=0.4)
+                            ax.plot(df['episode'], df['moving_average'], label=f'{ma_window}-episode MA', color='tab:orange', linewidth=2)
+                            ax.set_xlabel('Episode')
+                            ax.set_ylabel('Reward')
+                            ax.set_title(f'{agent_name.upper()} Training Rewards')
+                            ax.legend()
+                            ax.grid(True)
+                            plot_placeholder.pyplot(fig)
+                            plt.close(fig)
+                    except Exception as e:
+                        plot_placeholder.warning(f"Error updating plot from {csv_path}: {e}")
+            
+            update_log_plot(st.session_state['trained_agent_name_for_logs'])
         
-        # --- NON-BLOCKING READ FUNCTIONALITY ---
-        def enqueue_output(out, queue):
-            for line in iter(out.readline, ''):
-                queue.put(line)
-            out.close()
-        
-        q = Queue()
-        t = Thread(target=enqueue_output, args=(process.stdout, q))
-        t.daemon = True # thread dies with the app
-        t.start()
-        # --- END NON-BLOCKING READ FUNCTIONALITY ---
-
-        full_output = []
-        
-        def update_log_plot(agent_name):
-            csv_path = os.path.join(project_root, 'results', f'{agent_name}_rollouts.csv')
-            if os.path.exists(csv_path):
-                try:
-                    df = pd.read_csv(csv_path)
-                    if 'ep_reward' in df.columns:
-                        reward_col = 'ep_reward'
-                    elif 'ep_rew' in df.columns:
-                        reward_col = 'ep_rew'
-                    else:
-                        reward_col = df.columns[2]
-                    
-                    ma_window = 100
-                    df['moving_average'] = df[reward_col].rolling(window=ma_window, min_periods=1).mean()
-
-                    fig, ax = plt.subplots(figsize=(10, 6))
-                    ax.plot(df['episode'], df[reward_col], label='Episode reward', alpha=0.4)
-                    ax.plot(df['episode'], df['moving_average'], label=f'{ma_window}-episode MA', color='tab:orange', linewidth=2)
-                    ax.set_xlabel('Episode')
-                    ax.set_ylabel('Reward')
-                    ax.set_title(f'{agent_name.upper()} Training Rewards')
-                    ax.legend()
-                    ax.grid(True)
-                    plot_placeholder.pyplot(fig)
-                    plt.close(fig)
-                except Exception as e:
-                    plot_placeholder.warning(f"Error updating plot from {csv_path}: {e}")
-
-        # Continuously check for new output from the queue
-        while process.poll() is None:
+        # Check if the process is still running in the background
+        if 'training_pid' in st.session_state and st.session_state['training_pid']:
             try:
-                line = q.get_nowait()
-            except Empty:
-                # No new output, so we can briefly sleep and rerun to keep the app responsive
-                time.sleep(0.5)
-            else:
-                full_output.append(line)
-                log_placeholder.text("".join(full_output[-20:]))
-                if "[EVAL]" in line:
-                    update_log_plot(st.session_state['trained_agent_name_for_logs'])
-            # Rerun to check for new lines and keep UI interactive
-            st.rerun() if st.session_state.get('training_in_progress', False) else None
-
-        st.session_state['training_in_progress'] = False
-        
-        # Final plot update and log display after process finishes
-        update_log_plot(st.session_state['trained_agent_name_for_logs'])
-        st.text_area("Full Training Log", "".join(full_output), height=400)
-        
-        if process.returncode == 0:
-            st.success("Training run finished successfully!")
-        else:
-            st.error("Training run failed or was stopped.")
+                os.kill(st.session_state['training_pid'], 0)
+            except ProcessLookupError:
+                st.success("Training process has completed!")
+                st.session_state['training_in_progress'] = False
+                st.session_state['training_pid'] = None
+                st.rerun()
