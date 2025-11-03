@@ -323,21 +323,32 @@ with tab_logs:
                 csv_path = os.path.join(project_root, 'results', f'{agent_name}_rollouts.csv')
                 if os.path.exists(csv_path):
                     try:
+                        # --- START OF MODIFICATION ---
                         df = pd.read_csv(csv_path)
                         if not df.empty:
+                            # Robust column selection
+                            if 'episode' in df.columns:
+                                episode_col = 'episode'
+                            elif ' episode' in df.columns: # Check for leading spaces
+                                episode_col = ' episode'
+                            else:
+                                episode_col = df.columns[0] # Fallback to the first column
+
                             if 'ep_reward' in df.columns:
                                 reward_col = 'ep_reward'
+                            elif ' ep_reward' in df.columns:
+                                reward_col = ' ep_reward'
                             elif 'ep_rew' in df.columns:
                                 reward_col = 'ep_rew'
                             else:
-                                reward_col = df.columns[2]
-                            
+                                reward_col = df.columns[2] # Fallback to the third column
+                    
                             ma_window = 100
                             df['moving_average'] = df[reward_col].rolling(window=ma_window, min_periods=1).mean()
 
                             fig, ax = plt.subplots(figsize=(10, 6))
-                            ax.plot(df['episode'], df[reward_col], label='Episode reward', alpha=0.4)
-                            ax.plot(df['episode'], df['moving_average'], label=f'{ma_window}-episode MA', color='tab:orange', linewidth=2)
+                            ax.plot(df[episode_col], df[reward_col], label='Episode reward', alpha=0.4)
+                            ax.plot(df[episode_col], df['moving_average'], label=f'{ma_window}-episode MA', color='tab:orange', linewidth=2)
                             ax.set_xlabel('Episode')
                             ax.set_ylabel('Reward')
                             ax.set_title(f'{agent_name.upper()} Training Rewards')
@@ -345,6 +356,7 @@ with tab_logs:
                             ax.grid(True)
                             plot_placeholder.pyplot(fig)
                             plt.close(fig)
+                        # --- END OF MODIFICATION ---
                     except Exception as e:
                         plot_placeholder.warning(f"Error updating plot from {csv_path}: {e}")
             
