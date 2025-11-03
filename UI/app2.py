@@ -11,14 +11,14 @@ import numpy as np
 from datetime import datetime
 
 # --- Initial Setup ---
-st.set_page_config(layout="wide")
+st.set_page_config(layout="wide") 
 
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, project_root)
 
-import torch
+import torch 
 
-# --- Session State Initialization ---
+# --- Session State Initialization (CRITICAL FIX) ---
 if 'training_in_progress' not in st.session_state:
     st.session_state['training_in_progress'] = False
 if 'training_pid' not in st.session_state:
@@ -27,8 +27,6 @@ if 'log_file_path' not in st.session_state:
     st.session_state['log_file_path'] = None
 if 'trained_agent_name_for_logs' not in st.session_state:
     st.session_state['trained_agent_name_for_logs'] = None
-if 'just_started_training' not in st.session_state:
-    st.session_state['just_started_training'] = False
 
 # --- Configuration Loading ---
 CONFIG_PATH = os.path.join(project_root, 'config.yaml')
@@ -80,20 +78,6 @@ st.markdown("Use the controls in the sidebar to configure the environment and tr
 
 # --- UI LAYOUT WITH TABS ---
 tab_keys = ["▶️ Play Pre-trained Model", "🧠 Train New Model", "📊 View Training Logs"]
-
-# Check if a training just started to force a tab switch
-if 'just_started_training' in st.session_state and st.session_state.just_started_training:
-    active_tab_key = "📊 View Training Logs"
-    st.session_state.just_started_training = False # Reset the flag
-else:
-    active_tab_key = "▶️ Play Pre-trained Model"
-
-# Use st.tabs' default index or a pre-selected one
-try:
-    default_tab_index = tab_keys.index(st.session_state.get('active_tab', '▶️ Play Pre-trained Model'))
-except ValueError:
-    default_tab_index = 0
-
 tab_playback, tab_training, tab_logs = st.tabs(tab_keys)
 
 # --- TAB 1: PLAYBACK ---
@@ -202,7 +186,7 @@ with tab_training:
     training_agent_cfg_key = training_agent_type.lower()
     
     with st.expander(f"Show/Hide {training_agent_type} Hyperparameters"):
-        # ... (All your hyperparameter widgets remain here as before) ...
+        # All your hyperparameter widgets remain here as before
         if training_agent_type == "DQN":
             if 'dqn' not in config: config['dqn'] = {}
             dqn_conf = config['dqn']
@@ -274,7 +258,8 @@ with tab_training:
             config['ppo']['ent_coef'] = ppo_ent_coef
             config['ppo']['activation'] = ppo_activation
     
-    if st.button("Start Training", use_container_width=True, key="start_training_btn"):
+    col1, col2 = st.columns(2)
+    if col1.button("Start Training", use_container_width=True, key="start_training_btn"):
         with open(CONFIG_PATH, 'w') as f:
             yaml.dump(config, f, default_flow_style=False)
         
@@ -293,31 +278,10 @@ with tab_training:
         st.session_state['training_pid'] = process.pid
         st.session_state['trained_agent_name_for_logs'] = current_agent_run_name
         st.session_state['training_in_progress'] = True
-        st.session_state['just_started_training'] = True
-        
-        # --- MODIFIED: Log file management ---
-        log_file_path = os.path.join(project_root, f"training_log_{process.pid}.log")
-        st.session_state['log_file_path'] = log_file_path
-        # Open a file to write the subprocess logs to
-        log_file = open(log_file_path, 'w')
-
-        # --- NON-BLOCKING READ FUNCTIONALITY ---
-        def stream_output(out, file):
-            for line in iter(out.readline, ''):
-                file.write(line)
-                file.flush() # Ensure it's written immediately
-            out.close()
-            file.close()
-
-        t = Thread(target=stream_output, args=(process.stdout, log_file))
-        t.daemon = True
-        t.start()
-        st.session_state['log_thread'] = t
-        # --- END NON-BLOCKING READ ---
         
         st.rerun()
 
-    if st.button("Stop Training", use_container_width=True, key="stop_training_btn"):
+    if col2.button("Stop Training", use_container_width=True, key="stop_training_btn"):
         if st.session_state.get('training_in_progress', False) and st.session_state.get('training_pid'):
             try:
                 os.kill(st.session_state['training_pid'], 9) # Send SIGKILL signal
@@ -349,11 +313,11 @@ with tab_logs:
 
         if st.button("Refresh"):
             # Read the entire log file up to the current point
-            if st.session_state.get('log_file_path') and os.path.exists(st.session_state['log_file_path']):
-                with open(st.session_state['log_file_path'], 'r') as f:
-                    full_output = f.readlines()
-                log_placeholder.text("".join(full_output[-30:]))
-            
+            # For this to work, we need to redirect subprocess output to a file
+            # The previous threading approach was complex, this is a placeholder
+            # for a more direct file-read approach
+            st.warning("Live log reading from file not yet implemented in this version.")
+
             # Update plot function
             def update_log_plot(agent_name):
                 csv_path = os.path.join(project_root, 'results', f'{agent_name}_rollouts.csv')
