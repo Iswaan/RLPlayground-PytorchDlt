@@ -16,8 +16,9 @@ st.set_page_config(layout="wide") # Use the full width of the page
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, project_root)
 
-import torch
+import torch # Ensure torch is imported after sys.path is set
 
+# --- Configuration Loading ---
 CONFIG_PATH = os.path.join(project_root, 'config.yaml')
 
 @st.cache_data
@@ -83,21 +84,22 @@ with tab_playback:
             playback_dqn_preset = st.selectbox("DQN Preset Model", ["fast_learning", "stability_first", "base_dqn"], key="playback_preset")
 
     with col_model_select:
-        # Find available models in pre_trained_models/
         pre_trained_models_dir = os.path.join(project_root, 'pre_trained_models')
         available_models = []
         if os.path.exists(pre_trained_models_dir):
             for f in os.listdir(pre_trained_models_dir):
-                if f.endswith('.pth') and f.startswith(f'best_{playback_agent_cfg_key}'):
+                if f.endswith('.pth'):
                     available_models.append(os.path.join(pre_trained_models_dir, f))
         
-        # Additional logic for DQN preset models
+        filtered_models = []
         if playback_agent_type == "DQN":
-            preset_model_name = f"best_dqn_{playback_dqn_preset}.pth"
-            # Filter available models to match selected agent and preset
-            filtered_models = [m for m in available_models if preset_model_name in m or "best_dqn.pth" in m]
+            if playback_dqn_preset != "base_dqn":
+                preset_model_name = f"best_dqn_{playback_dqn_preset}.pth"
+                filtered_models = [m for m in available_models if preset_model_name in m]
+            else: # base_dqn
+                filtered_models = [m for m in available_models if os.path.basename(m) == "best_dqn.pth"]
         else:
-            filtered_models = [m for m in available_models if f"best_{playback_agent_cfg_key}.pth" in m]
+            filtered_models = [m for m in available_models if os.path.basename(m) == f"best_{playback_agent_cfg_key}.pth"]
 
         selected_model_path = st.selectbox(
             "Select Pre-trained Model",
@@ -174,26 +176,164 @@ with tab_training:
     
     with st.expander(f"Show/Hide {training_agent_type} Hyperparameters"):
         if training_agent_type == "DQN":
-            # Your full DQN parameter widgets go here...
-            st.info("Full DQN hyperparameter controls would be listed here.")
-        elif training_agent_type == "A2C":
-            # Your full A2C parameter widgets go here...
-            st.info("Full A2C hyperparameter controls would be listed here.")
-        elif training_agent_type == "PPO":
-            # Your full PPO parameter widgets go here...
-            st.info("Full PPO hyperparameter controls would be listed here.")
+            if 'dqn' not in config: config['dqn'] = {}
+            dqn_conf = config['dqn']
+            
+            st.write("Parameters for base DQN config:")
+            dqn_lr = st.number_input("Learning Rate", value=float(dqn_conf.get('lr', 2.5e-4)), format="%e", key="dqn_lr")
+            dqn_gamma = st.slider("Gamma", value=float(dqn_conf.get('gamma', 0.99)), min_value=0.0, max_value=1.0, step=0.01, key="dqn_gamma")
+            dqn_batch_size = st.number_input("Batch Size", value=int(dqn_conf.get('batch_size', 256)), min_value=16, step=16, key="dqn_bs")
+            dqn_buffer_size = st.number_input("Buffer Size", value=int(dqn_conf.get('buffer_size', 200000)), min_value=1000, step=1000, key="dqn_buf")
+            dqn_min_replay_size = st.number_input("Min Replay Size", value=int(dqn_conf.get('min_replay_size', 20000)), min_value=100, step=100, key="dqn_min_replay")
+            dqn_update_every = st.number_input("Update Every", value=int(dqn_conf.get('update_every', 4)), min_value=1, step=1, key="dqn_update")
+            dqn_tau = st.number_input("Tau", value=float(dqn_conf.get('tau', 1e-3)), format="%e", key="dqn_tau")
+            dqn_double_dqn = st.checkbox("Double DQN", value=bool(dqn_conf.get('double_dqn', True)), key="dqn_ddqn")
+            dqn_clip_grad = st.number_input("Clip Grad", value=float(dqn_conf.get('clip_grad', 0.5)), min_value=0.0, step=0.1, key="dqn_clip")
+            dqn_epsilon_start = st.number_input("Epsilon Start", value=float(dqn_conf.get('epsilon_start', 1.0)), min_value=0.0, max_value=1.0, step=0.01, key="dqn_eps_start")
+            dqn_epsilon_end = st.number_input("Epsilon End", value=float(dqn_conf.get('epsilon_end', 0.01)), min_value=0.0, max_value=1.0, step=0.001, format="%f", key="dqn_eps_end")
+            dqn_epsilon_decay = st.number_input("Epsilon Decay", value=float(dqn_conf.get('epsilon_decay', 0.997)), min_value=0.0, max_value=1.0, step=0.001, format="%f", key="dqn_eps_decay")
+            dqn_target_update_every = st.number_input("Target Update Every", value=int(dqn_conf.get('target_update_every', 1000)), min_value=1, step=100, key="dqn_target_update")
+            
+            config['dqn']['lr'] = dqn_lr
+            config['dqn']['gamma'] = dqn_gamma
+            config['dqn']['batch_size'] = dqn_batch_size
+            config['dqn']['buffer_size'] = dqn_buffer_size
+            config['dqn']['min_replay_size'] = dqn_min_replay_size
+            config['dqn']['update_every'] = dqn_update_every
+            config['dqn']['tau'] = dqn_tau
+            config['dqn']['double_dqn'] = dqn_double_dqn
+            config['dqn']['clip_grad'] = dqn_clip_grad
+            config['dqn']['epsilon_start'] = dqn_epsilon_start
+            config['dqn']['epsilon_end'] = dqn_epsilon_end
+            config['dqn']['epsilon_decay'] = dqn_epsilon_decay
+            config['dqn']['target_update_every'] = dqn_target_update_every
 
-    if st.button("Start Training", use_container_width=True):
-        st.warning("Training functionality is set up but will run on the Streamlit Cloud server. This can be slow. Use for smaller training runs.")
-        # The full training logic (subprocess calls, etc.) from the previous app.py would go here.
-        # For simplicity in this example, we'll just show a message.
-        st.info("This is where the training process would be initiated.")
+        elif training_agent_type == "A2C":
+            if 'a2c' not in config: config['a2c'] = {}
+            a2c_conf = config['a2c']
+            a2c_lr = st.number_input("Learning Rate", value=float(a2c_conf.get('lr', 7e-4)), format="%e", key="a2c_lr")
+            a2c_gamma = st.slider("Gamma", value=float(a2c_conf.get('gamma', 0.99)), min_value=0.0, max_value=1.0, step=0.01, key="a2c_gamma")
+            a2c_activation = st.selectbox("Activation", ["Tanh", "ReLU"], index=0 if a2c_conf.get('activation', 'Tanh') == 'Tanh' else 1, key="a2c_act")
+            a2c_value_coef = st.number_input("Value Coefficient", value=float(a2c_conf.get('value_coef', 0.5)), min_value=0.0, step=0.01, key="a2c_val_coef")
+            a2c_entropy_coef = st.number_input("Entropy Coefficient", value=float(a2c_conf.get('entropy_coef', 0.01)), min_value=0.0, step=0.001, format="%f", key="a2c_ent_coef")
+
+            config['a2c']['lr'] = a2c_lr
+            config['a2c']['gamma'] = a2c_gamma
+            config['a2c']['activation'] = a2c_activation
+            config['a2c']['value_coef'] = a2c_value_coef
+            config['a2c']['entropy_coef'] = a2c_entropy_coef
+
+        elif training_agent_type == "PPO":
+            if 'ppo' not in config: config['ppo'] = {}
+            ppo_conf = config['ppo']
+            ppo_lr = st.number_input("Learning Rate", value=float(ppo_conf.get('lr', 3e-4)), format="%e", key="ppo_lr")
+            ppo_gamma = st.slider("Gamma", value=float(ppo_conf.get('gamma', 0.99)), min_value=0.0, max_value=1.0, step=0.01, key="ppo_gamma")
+            ppo_n_steps = st.number_input("N Steps", value=int(ppo_conf.get('n_steps', 2048)), min_value=32, step=32, key="ppo_n_steps")
+            ppo_n_epochs = st.number_input("N Epochs", value=int(ppo_conf.get('n_epochs', 10)), min_value=1, step=1, key="ppo_n_epochs")
+            ppo_batch_size = st.number_input("Batch Size", value=int(ppo_conf.get('batch_size', 64)), min_value=16, step=16, key="ppo_bs")
+            ppo_clip_epsilon = st.number_input("Clip Epsilon", value=float(ppo_conf.get('clip_epsilon', 0.2)), min_value=0.0, max_value=0.5, step=0.01, key="ppo_clip")
+            ppo_gae_lambda = st.number_input("GAE Lambda", value=float(ppo_conf.get('gae_lambda', 0.95)), min_value=0.0, max_value=1.0, step=0.01, key="ppo_gae")
+            ppo_ent_coef = st.number_input("Entropy Coefficient", value=float(ppo_conf.get('ent_coef', 0.01)), min_value=0.0, step=0.001, format="%f", key="ppo_ent")
+            ppo_activation = st.selectbox("Activation", ["ReLU", "Tanh"], index=0 if ppo_conf.get('activation', 'ReLU') == 'ReLU' else 1, key="ppo_act")
+
+            config['ppo']['lr'] = ppo_lr
+            config['ppo']['gamma'] = ppo_gamma
+            config['ppo']['n_steps'] = ppo_n_steps
+            config['ppo']['n_epochs'] = ppo_n_epochs
+            config['ppo']['batch_size'] = ppo_batch_size
+            config['ppo']['clip_epsilon'] = ppo_clip_epsilon
+            config['ppo']['gae_lambda'] = ppo_gae_lambda
+            config['ppo']['ent_coef'] = ppo_ent_coef
+            config['ppo']['activation'] = ppo_activation
+    
+    if st.button("Start Training", use_container_width=True, key="start_training_btn"):
+        with open(CONFIG_PATH, 'w') as f:
+            yaml.dump(config, f, default_flow_style=False)
+        
+        st.info(f"Starting {training_agent_type} training for {train_episodes} episodes on {env_name}... Logs will appear in the 'View Training Logs' tab.")
+        
+        script_to_run = f"train_{training_agent_cfg_key}.py"
+        command = [sys.executable, os.path.join(project_root, script_to_run)]
+        
+        current_agent_run_name = training_agent_cfg_key
+        if training_agent_type == "DQN":
+            # For simplicity, we just run the main train_dqn.py script, which will handle its presets internally.
+            # The user should configure presets in config.yaml for now.
+            current_agent_run_name = "dqn"
+        
+        with st.spinner(f'Training {training_agent_type}...'):
+            process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, cwd=project_root)
+            
+            # Store process and other info in session state to be accessed by the Logs tab
+            st.session_state['training_process'] = process
+            st.session_state['trained_agent_name_for_logs'] = current_agent_run_name
+            st.session_state['training_in_progress'] = True
 
 # --- TAB 3: LOGS and PLOTS ---
 with tab_logs:
     st.header("Live Training Logs and Plots")
-    st.markdown("If you start a training run, its terminal output and reward plots will appear here.")
     
-    # This section is a placeholder for the live output and plotting logic
-    # from the previous comprehensive app.py.
-    st.info("Terminal output and live plots would be displayed in this tab during training.")
+    if 'training_in_progress' not in st.session_state:
+        st.session_state['training_in_progress'] = False
+
+    if not st.session_state['training_in_progress']:
+        st.info("Start a new training run from the 'Train New Model' tab to see live logs and plots here.")
+
+    # Placeholders for live updates
+    log_placeholder = st.empty()
+    plot_placeholder = st.empty()
+
+    if st.session_state['training_in_progress']:
+        process = st.session_state['training_process']
+        full_output = []
+        
+        # Function to update plot for live view
+        def update_log_plot(agent_name):
+            csv_path = os.path.join(project_root, 'results', f'{agent_name}_rollouts.csv')
+            if os.path.exists(csv_path):
+                try:
+                    df = pd.read_csv(csv_path)
+                    if 'ep_reward' in df.columns:
+                        reward_col = 'ep_reward'
+                    elif 'ep_rew' in df.columns:
+                        reward_col = 'ep_rew'
+                    else:
+                        reward_col = df.columns[2]
+                    
+                    ma_window = 100
+                    df['moving_average'] = df[reward_col].rolling(window=ma_window, min_periods=1).mean()
+
+                    fig, ax = plt.subplots(figsize=(10, 6))
+                    ax.plot(df['episode'], df[reward_col], label='Episode reward', alpha=0.4)
+                    ax.plot(df['episode'], df['moving_average'], label=f'{ma_window}-episode MA', color='tab:orange', linewidth=2)
+                    ax.set_xlabel('Episode')
+                    ax.set_ylabel('Reward')
+                    ax.set_title(f'{agent_name.upper()} Training Rewards')
+                    ax.legend()
+                    ax.grid(True)
+                    plot_placeholder.pyplot(fig)
+                    plt.close(fig)
+                except Exception as e:
+                    plot_placeholder.warning(f"Error updating plot from {csv_path}: {e}")
+
+        # Stream output and update plot
+        while process.poll() is None:
+            line = process.stdout.readline()
+            if line:
+                full_output.append(line)
+                log_placeholder.text("".join(full_output[-20:]))
+                # Refresh plot on every evaluation step
+                if "[EVAL]" in line:
+                    update_log_plot(st.session_state['trained_agent_name_for_logs'])
+            time.sleep(0.1) # Small delay to prevent busy-waiting
+
+        st.session_state['training_in_progress'] = False
+        
+        # Final plot update and log display
+        update_log_plot(st.session_state['trained_agent_name_for_logs'])
+        st.text_area("Full Training Log", "".join(full_output), height=400)
+        
+        if process.returncode == 0:
+            st.success("Training run finished successfully!")
+        else:
+            st.error("Training run failed or was stopped.")
