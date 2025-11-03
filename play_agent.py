@@ -69,7 +69,7 @@ if hidden_layers_cfg:
 else:
     network = NetworkClass(obs_dim, action_dim)
 
-agent = AgentClass(env, network, device=device)
+agent = AgentClass(env=env, network=network, device=device, config=config)
 agent.agent_name = agent_name
 
 # --- Load Model ---
