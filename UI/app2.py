@@ -67,6 +67,14 @@ st.title("🚀 RL Playground: A Universal Game AI Framework")
 st.markdown("Use the controls in the sidebar to configure the environment and training. Select a tab below to either play a pre-trained model or train a new one.")
 
 # --- UI LAYOUT WITH TABS ---
+# Initialize session state for active tab if it doesn't exist
+if 'active_tab' not in st.session_state:
+    st.session_state.active_tab = "▶️ Play Pre-trained Model"
+
+# If training was just started, switch to the logs tab
+if 'training_in_progress' in st.session_state and st.session_state['training_in_progress']:
+    st.session_state.active_tab = "📊 View Training Logs"
+
 tab_playback, tab_training, tab_logs = st.tabs(["▶️ Play Pre-trained Model", "🧠 Train New Model", "📊 View Training Logs"])
 
 # --- TAB 1: PLAYBACK ---
@@ -290,6 +298,8 @@ with tab_logs:
 
     if not st.session_state['training_in_progress']:
         st.info("Start a new training run from the 'Train New Model' tab to see live logs and plots here.")
+    else:
+        st.info("Training is in progress... Logs will update in real-time.") # Added for clarity
 
     log_placeholder = st.empty()
     plot_placeholder = st.empty()
