@@ -375,7 +375,7 @@ with tab_logs:
                 if "[EVAL]" in line:
                     update_log_plot(st.session_state['trained_agent_name_for_logs'])
             # Rerun to check for new lines and keep UI interactive
-            st.experimental_rerun() if st.session_state.get('training_in_progress', False) else None
+            st.rerun() if st.session_state.get('training_in_progress', False) else None
 
         st.session_state['training_in_progress'] = False
         
