@@ -265,7 +265,7 @@ with tab_training:
         st.session_state['training_process'] = process
         st.session_state['trained_agent_name_for_logs'] = current_agent_run_name
         st.session_state['training_in_progress'] = True
-        st.experimental_rerun()
+        st.rerun()
 
     if st.button("Stop Training", use_container_width=True, key="stop_training_btn"):
         if 'training_process' in st.session_state and st.session_state['training_process']:
@@ -275,7 +275,7 @@ with tab_training:
                 st.session_state['training_in_progress'] = False
                 st.success("Training process has been sent a stop signal. Check logs for final output.")
                 time.sleep(2)
-                st.experimental_rerun()
+                st.rerun()
             else:
                 st.warning("No active training process found to stop.")
         else:
