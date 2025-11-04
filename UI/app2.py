@@ -279,25 +279,35 @@ with tab_logs:
                 log_placeholder.text("".join(full_output[-30:]))
             
             # Update plot function
+            # Find this function in UI/app.py and replace it
             def update_log_plot(agent_name):
                 log_dir = config.get('log_save_dir', 'logs_results')
                 csv_path = os.path.join(project_root, log_dir, f'{agent_name}_rollouts.csv')
+                
                 if os.path.exists(csv_path):
                     try:
+                        # --- START OF MODIFICATION ---
                         df = pd.read_csv(csv_path)
-                        if not df.empty and len(df) > 1:
-                            if 'episode' in df.columns:
-                                episode_col = 'episode'
-                            else:
-                                episode_col = df.columns[0]
 
-                            if 'ep_reward' in df.columns:
-                                reward_col = 'ep_reward'
-                            elif 'ep_rew' in df.columns:
-                                reward_col = 'ep_rew'
-                            else:
-                                reward_col = df.columns[2]
-                            
+                        # Robustly find episode and reward columns
+                        episode_col = None
+                        if 'episode' in df.columns:
+                            episode_col = 'episode'
+                        elif df.columns[0].strip().lower() == 'episode':
+                            episode_col = df.columns[0]
+
+                        reward_col = None
+                        if 'ep_reward' in df.columns:
+                            reward_col = 'ep_reward'
+                        elif ' ep_reward' in df.columns:
+                            reward_col = ' ep_reward'
+                        elif 'ep_rew' in df.columns:
+                            reward_col = 'ep_rew'
+                        elif len(df.columns) > 2 and 'reward' in df.columns[2].strip().lower():
+                            reward_col = df.columns[2]
+
+                        # CRITICAL FIX: Only proceed if both columns were found and the dataframe is valid
+                        if episode_col and reward_col and not df.empty and len(df) > 1:
                             ma_window = 100
                             df['moving_average'] = df[reward_col].rolling(window=ma_window, min_periods=1).mean()
 
@@ -315,6 +325,7 @@ with tab_logs:
                             ax.grid(True)
                             plot_placeholder.pyplot(fig)
                             plt.close(fig)
+                        # --- END OF MODIFICATION ---
                     except Exception as e:
                         plot_placeholder.warning(f"Error updating plot from {csv_path}: {e}")
             
