@@ -18,13 +18,11 @@ sys.path.insert(0, project_root)
 
 import torch 
 
-# --- Session State Initialization (CRITICAL FIX) ---
+# --- Session State Initialization (CRITICAL for multi-page behavior) ---
 if 'training_in_progress' not in st.session_state:
     st.session_state['training_in_progress'] = False
 if 'training_pid' not in st.session_state:
     st.session_state['training_pid'] = None
-if 'log_file_path' not in st.session_state:
-    st.session_state['log_file_path'] = None
 if 'trained_agent_name_for_logs' not in st.session_state:
     st.session_state['trained_agent_name_for_logs'] = None
 
@@ -186,7 +184,6 @@ with tab_training:
     training_agent_cfg_key = training_agent_type.lower()
     
     with st.expander(f"Show/Hide {training_agent_type} Hyperparameters"):
-        # All your hyperparameter widgets remain here as before
         if training_agent_type == "DQN":
             if 'dqn' not in config: config['dqn'] = {}
             dqn_conf = config['dqn']
@@ -257,9 +254,8 @@ with tab_training:
             config['ppo']['gae_lambda'] = ppo_gae_lambda
             config['ppo']['ent_coef'] = ppo_ent_coef
             config['ppo']['activation'] = ppo_activation
-    
-    col1, col2 = st.columns(2)
-    if col1.button("Start Training", use_container_width=True, key="start_training_btn"):
+
+    if st.button("Start Training", use_container_width=True, key="start_training_btn"):
         with open(CONFIG_PATH, 'w') as f:
             yaml.dump(config, f, default_flow_style=False)
         
@@ -268,7 +264,9 @@ with tab_training:
         script_to_run = f"train_{training_agent_cfg_key}.py"
         command = [sys.executable, os.path.join(project_root, script_to_run)]
         
-        command.extend(['--save_path', config.get('log_save_dir', 'logs_results')])
+        # Use log_save_dir from config for the save path
+        log_dir = config.get('log_save_dir', 'logs_results')
+        command.extend(['--save_path', log_dir])
 
         current_agent_run_name = training_agent_cfg_key
         if training_agent_type == "DQN":
@@ -283,7 +281,7 @@ with tab_training:
         
         st.rerun()
 
-    if col2.button("Stop Training", use_container_width=True, key="stop_training_btn"):
+    if st.button("Stop Training", use_container_width=True, key="stop_training_btn"):
         if st.session_state.get('training_in_progress', False) and st.session_state.get('training_pid'):
             try:
                 os.kill(st.session_state['training_pid'], 9) # Send SIGKILL signal
@@ -299,7 +297,7 @@ with tab_training:
             except Exception as e:
                 st.error(f"Failed to stop process: {e}")
         else:
-            st.warning("No active training process found to stop.")
+            st.warning("No active training process has been started in this session.")
 
 # --- TAB 3: LOGS and PLOTS ---
 with tab_logs:
@@ -314,38 +312,33 @@ with tab_logs:
         plot_placeholder = st.empty()
 
         if st.button("Refresh"):
-            # Read the entire log file up to the current point
-            # For this to work, we need to redirect subprocess output to a file
-            # The previous threading approach was complex, this is a placeholder
-            # for a more direct file-read approach
-            st.warning("Live log reading from file not yet implemented in this version.")
-
-            # Update plot function
+            # --- NEW: Simplified file-based log reading ---
+            log_file_path = os.path.join(project_root, "training_log.log") # A single, consistent log file
+            if os.path.exists(log_file_path):
+                with open(log_file_path, 'r') as f:
+                    full_output = f.readlines()
+                log_placeholder.text("".join(full_output[-30:]))
+            
             def update_log_plot(agent_name):
+                # --- MODIFIED: Use log_save_dir from config ---
                 log_dir = config.get('log_save_dir', 'logs_results')
                 csv_path = os.path.join(project_root, log_dir, f'{agent_name}_rollouts.csv')
                 if os.path.exists(csv_path):
                     try:
-                        # --- START OF MODIFICATION ---
                         df = pd.read_csv(csv_path)
                         if not df.empty:
-                            # Robust column selection
                             if 'episode' in df.columns:
                                 episode_col = 'episode'
-                            elif ' episode' in df.columns: # Check for leading spaces
-                                episode_col = ' episode'
                             else:
-                                episode_col = df.columns[0] # Fallback to the first column
+                                episode_col = df.columns[0]
 
                             if 'ep_reward' in df.columns:
                                 reward_col = 'ep_reward'
-                            elif ' ep_reward' in df.columns:
-                                reward_col = ' ep_reward'
                             elif 'ep_rew' in df.columns:
                                 reward_col = 'ep_rew'
                             else:
-                                reward_col = df.columns[2] # Fallback to the third column
-                    
+                                reward_col = df.columns[2]
+                            
                             ma_window = 100
                             df['moving_average'] = df[reward_col].rolling(window=ma_window, min_periods=1).mean()
 
@@ -359,14 +352,12 @@ with tab_logs:
                             ax.grid(True)
                             plot_placeholder.pyplot(fig)
                             plt.close(fig)
-                        # --- END OF MODIFICATION ---
                     except Exception as e:
                         plot_placeholder.warning(f"Error updating plot from {csv_path}: {e}")
             
             if st.session_state.get('trained_agent_name_for_logs'):
                 update_log_plot(st.session_state['trained_agent_name_for_logs'])
         
-        # Check if the process is still running in the background and offer a final refresh
         if st.session_state.get('training_pid'):
             try:
                 os.kill(st.session_state['training_pid'], 0)
