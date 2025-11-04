@@ -87,9 +87,10 @@ class RolloutLogger:
 
         timestamp = int(time.time())
 
-        # Build boxed content lines - include mean±std
+        # --- THIS IS THE FIX ---
+        # Added 'ep:{self.episode_counter}' which the Streamlit app looks for.
         lines = [
-            f"rollout/ ep_len:{int(ep_len):4d} ep_rew:{ep_reward:8.2f}",
+            f"rollout/ ep: {self.episode_counter:<4d} ep_len:{int(ep_len):<4d} ep_rew:{ep_reward:8.2f}",
             f"mean±std:{ep_mean:8.2f}±{ep_std:6.2f} fps:{fps:6.1f}",
             f"time_elapsed:{elapsed:6.3f}s total_timesteps:{self.total_timesteps}"
         ]
