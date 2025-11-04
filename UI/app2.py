@@ -185,11 +185,10 @@ with tab_training:
     training_agent_type = st.selectbox("Choose Agent to Train", ["DQN", "A2C", "PPO"], key="train_agent")
     training_agent_cfg_key = training_agent_type.lower()
     
-    # --- SIMPLIFIED: Only show DQN preset selector ---
     if training_agent_type == "DQN":
         training_dqn_preset = st.selectbox(
             "DQN Preset to Train",
-            ["fast_learning", "stability_first"], # Removed 'base_dqn' for training clarity
+            ["fast_learning", "stability_first"],
             key="train_dqn_preset"
         )
     
@@ -205,15 +204,30 @@ with tab_training:
         log_dir = config.get('log_save_dir', 'logs_results')
         command.extend(['--save_path', log_dir])
 
-        # --- SIMPLIFIED & CORRECTED: Logic to set the agent name for logs ---
+        agent_log_name = ""
         if training_agent_type == "DQN":
             selected_preset = st.session_state.get('train_dqn_preset', 'fast_learning')
             command.extend(["--preset_name", selected_preset])
-            st.session_state['agent_for_logs'] = f"dqn_{selected_preset}"
-        else: # A2C or PPO
-            st.session_state['agent_for_logs'] = training_agent_cfg_key
+            agent_log_name = f"dqn_{selected_preset}"
+            st.session_state['agent_for_logs'] = agent_log_name
+        else:
+            agent_log_name = training_agent_cfg_key
+            st.session_state['agent_for_logs'] = agent_log_name
+
+        # --- FIX #1: Clean up previous log file ---
+        rollout_csv_path = os.path.join(project_root, log_dir, f"{agent_log_name}_rollouts.csv")
+        if os.path.exists(rollout_csv_path):
+            try:
+                os.remove(rollout_csv_path)
+                st.toast(f"Cleared old log file: {os.path.basename(rollout_csv_path)}")
+            except OSError as e:
+                st.warning(f"Could not remove old log file: {e}")
         
-        # --- SIMPLIFIED: Redirect output to a file and store PID ---
+        # --- FIX #2: Run python in unbuffered mode (-u) ---
+        # This makes the subprocess write output to the log file immediately.
+        command.insert(1, "-u")
+
+        # Redirect output to a file and store PID
         log_file_path = os.path.join(project_root, "training_log.log")
         st.session_state['log_file_path'] = log_file_path
         
@@ -223,15 +237,35 @@ with tab_training:
         st.session_state['training_pid'] = process.pid
         st.session_state['training_in_progress'] = True
         
-        st.rerun()
+        # --- FIX #3: Add a health check to see if the process started correctly ---
+        time.sleep(2)  # Give the process a moment to start or fail
+        process_running = False
+        try:
+            # Check if the process is still running. os.kill with signal 0 is a test, it doesn't actually kill it.
+            os.kill(process.pid, 0)
+            process_running = True
+        except (ProcessLookupError, PermissionError):
+            process_running = False
+
+        if not process_running:
+            # If the process died immediately, show an error and the log content.
+            st.session_state['training_in_progress'] = False
+            st.session_state['training_pid'] = None
+            st.error("The training process failed to start. See the log below for details.")
+            if os.path.exists(log_file_path):
+                with open(log_file_path, 'r') as f:
+                    st.code(f.read(), language='text')
+        else:
+            # If the process is running, switch to the logs tab.
+            st.rerun()
 
     if st.button("Stop Training", use_container_width=True, key="stop_training_btn"):
         if st.session_state.get('training_in_progress') and st.session_state.get('training_pid'):
             try:
-                os.kill(st.session_state['training_pid'], 9)
+                os.kill(st.session_state['training_pid'], 9) # 9 is SIGKILL
                 st.session_state['training_in_progress'] = False
                 st.session_state['training_pid'] = None
-                st.success("Training process has been sent a stop signal.")
+                st.success("Training process has been stopped.")
                 time.sleep(1)
                 st.rerun()
             except ProcessLookupError:
@@ -241,7 +275,7 @@ with tab_training:
             except Exception as e:
                 st.error(f"Failed to stop process: {e}")
         else:
-            st.warning("No active training process has been started in this session.")
+            st.warning("No active training process to stop.")
 
 # --- TAB 3: LOGS and PLOTS ---
 with tab_logs:
@@ -266,47 +300,40 @@ with tab_logs:
                 for line in reversed(full_output):
                     if "rollout/ ep:" in line:
                         try:
-                            episode_str = line.split("ep:")[1].strip().split(" ")[0]
+                            # More robust parsing of the episode number
+                            episode_str = line.split("ep:")[1].strip().split()[0]
                             latest_episode = int(episode_str)
                             break
                         except (IndexError, ValueError):
                             continue
                 
                 if latest_episode > 0:
-                    total_episodes = config.get('train_episodes', 'N/A')
-                    episode_counter_placeholder.progress(latest_episode / total_episodes, text=f"Episode: {latest_episode} / {total_episodes}")
+                    total_episodes = config.get('train_episodes', 1) # Avoid division by zero
+                    progress_val = min(1.0, latest_episode / total_episodes)
+                    episode_counter_placeholder.progress(progress_val, text=f"Episode: {latest_episode} / {total_episodes}")
                 
-                log_placeholder.text("".join(full_output[-30:]))
+                log_placeholder.code("".join(full_output[-30:]), language='text')
             
-            # Update plot function
-            # Find this function in UI/app.py and replace it
             def update_log_plot(agent_name):
                 log_dir = config.get('log_save_dir', 'logs_results')
                 csv_path = os.path.join(project_root, log_dir, f'{agent_name}_rollouts.csv')
                 
                 if os.path.exists(csv_path):
                     try:
-                        # --- START OF MODIFICATION ---
                         df = pd.read_csv(csv_path)
 
-                        # Robustly find episode and reward columns
                         episode_col = None
-                        if 'episode' in df.columns:
-                            episode_col = 'episode'
-                        elif df.columns[0].strip().lower() == 'episode':
-                            episode_col = df.columns[0]
-
+                        for col in ['episode', ' episode']:
+                            if col in df.columns:
+                                episode_col = col
+                                break
+                        
                         reward_col = None
-                        if 'ep_reward' in df.columns:
-                            reward_col = 'ep_reward'
-                        elif ' ep_reward' in df.columns:
-                            reward_col = ' ep_reward'
-                        elif 'ep_rew' in df.columns:
-                            reward_col = 'ep_rew'
-                        elif len(df.columns) > 2 and 'reward' in df.columns[2].strip().lower():
-                            reward_col = df.columns[2]
+                        for col in ['ep_reward', ' ep_reward', 'ep_rew']:
+                             if col in df.columns:
+                                reward_col = col
+                                break
 
-                        # CRITICAL FIX: Only proceed if both columns were found and the dataframe is valid
                         if episode_col and reward_col and not df.empty and len(df) > 1:
                             ma_window = 100
                             df['moving_average'] = df[reward_col].rolling(window=ma_window, min_periods=1).mean()
@@ -325,13 +352,13 @@ with tab_logs:
                             ax.grid(True)
                             plot_placeholder.pyplot(fig)
                             plt.close(fig)
-                        # --- END OF MODIFICATION ---
                     except Exception as e:
                         plot_placeholder.warning(f"Error updating plot from {csv_path}: {e}")
             
             if st.session_state.get('agent_for_logs'):
                 update_log_plot(st.session_state['agent_for_logs'])
         
+        # Check if the process has finished since the last refresh
         if st.session_state.get('training_pid'):
             try:
                 os.kill(st.session_state['training_pid'], 0)
