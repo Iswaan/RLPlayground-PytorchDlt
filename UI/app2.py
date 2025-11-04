@@ -178,7 +178,6 @@ with tab_playback:
                 st.error(f"An unexpected error occurred: {e}")
 
 # --- TAB 2: TRAINING ---
-# --- TAB 2: TRAINING ---
 with tab_training:
     st.header("Train a New Model")
     st.markdown("Select an agent type and configure its hyperparameters. When ready, click 'Start Training'.")
@@ -206,31 +205,15 @@ with tab_training:
         log_dir = config.get('log_save_dir', 'logs_results')
         command.extend(['--save_path', log_dir])
 
-        # Logic to set the agent name for logs and determine log file path
-        agent_log_name = ""
+        # --- SIMPLIFIED & CORRECTED: Logic to set the agent name for logs ---
         if training_agent_type == "DQN":
             selected_preset = st.session_state.get('train_dqn_preset', 'fast_learning')
             command.extend(["--preset_name", selected_preset])
-            agent_log_name = f"dqn_{selected_preset}"
-            st.session_state['agent_for_logs'] = agent_log_name
+            st.session_state['agent_for_logs'] = f"dqn_{selected_preset}"
         else: # A2C or PPO
-            agent_log_name = training_agent_cfg_key
-            st.session_state['agent_for_logs'] = agent_log_name
-
-        # --- THIS IS THE FIX ---
-        # Clean up the previous rollout log file to prevent corrupted plots.
-        log_dir_path = os.path.join(project_root, log_dir)
-        rollout_csv_path = os.path.join(log_dir_path, f"{agent_log_name}_rollouts.csv")
-
-        if os.path.exists(rollout_csv_path):
-            try:
-                os.remove(rollout_csv_path)
-                st.toast(f"Cleared previous log file: {os.path.basename(rollout_csv_path)}")
-            except OSError as e:
-                st.warning(f"Could not remove old log file: {e}")
-        # --- END OF FIX ---
+            st.session_state['agent_for_logs'] = training_agent_cfg_key
         
-        # Redirect output to a file and store PID
+        # --- SIMPLIFIED: Redirect output to a file and store PID ---
         log_file_path = os.path.join(project_root, "training_log.log")
         st.session_state['log_file_path'] = log_file_path
         
@@ -257,6 +240,8 @@ with tab_training:
                 st.session_state['training_pid'] = None
             except Exception as e:
                 st.error(f"Failed to stop process: {e}")
+        else:
+            st.warning("No active training process has been started in this session.")
 
 # --- TAB 3: LOGS and PLOTS ---
 with tab_logs:
