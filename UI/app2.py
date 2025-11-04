@@ -20,13 +20,13 @@ import torch
 
 # --- Session State Initialization ---
 if 'training_in_progress' not in st.session_state:
-    st.session_state['training_in_progress'] = False
+    st.session_state.training_in_progress = False
 if 'training_pid' not in st.session_state:
-    st.session_state['training_pid'] = None
+    st.session_state.training_pid = None
 if 'log_file_path' not in st.session_state:
-    st.session_state['log_file_path'] = None
-if 'trained_agent_name_for_logs' not in st.session_state:
-    st.session_state['trained_agent_name_for_logs'] = None
+    st.session_state.log_file_path = None
+if 'agent_for_logs' not in st.session_state:
+    st.session_state.agent_for_logs = None
 
 # --- Configuration Loading ---
 CONFIG_PATH = os.path.join(project_root, 'config.yaml')
@@ -185,34 +185,15 @@ with tab_training:
     training_agent_type = st.selectbox("Choose Agent to Train", ["DQN", "A2C", "PPO"], key="train_agent")
     training_agent_cfg_key = training_agent_type.lower()
     
-    with st.expander(f"Show/Hide {training_agent_type} Hyperparameters"):
-        if training_agent_type == "DQN":
-            # Preset selection for training
-            training_dqn_preset = st.selectbox(
-                "DQN Preset to Train",
-                ["fast_learning", "stability_first"], # Removed 'base_dqn' for training clarity
-                key="train_dqn_preset"
-            )
-            
-            # Load the correct config block based on preset selection
-            if training_dqn_preset in config.get('presets', {}):
-                dqn_conf = config['presets'][training_dqn_preset]['dqn']
-            else:
-                dqn_conf = config.get('dqn', {})
-
-            st.write(f"Parameters for {training_dqn_preset}:")
-            dqn_lr = st.number_input("Learning Rate (DQN)", value=float(dqn_conf.get('lr', 2.5e-4)), format="%e", key="dqn_lr")
-            # ... and so on for all DQN parameters ...
-
-        elif training_agent_type == "A2C":
-            # ... A2C parameters ...
-            pass
-        elif training_agent_type == "PPO":
-            # ... PPO parameters ...
-            pass
-        
-    col1, col2 = st.columns(2)
-    if col1.button("Start Training", use_container_width=True, key="start_training_btn"):
+    # --- SIMPLIFIED: Only show DQN preset selector ---
+    if training_agent_type == "DQN":
+        training_dqn_preset = st.selectbox(
+            "DQN Preset to Train",
+            ["fast_learning", "stability_first"], # Removed 'base_dqn' for training clarity
+            key="train_dqn_preset"
+        )
+    
+    if st.button("Start Training", use_container_width=True, key="start_training_btn"):
         with open(CONFIG_PATH, 'w') as f:
             yaml.dump(config, f, default_flow_style=False)
         
@@ -224,26 +205,28 @@ with tab_training:
         log_dir = config.get('log_save_dir', 'logs_results')
         command.extend(['--save_path', log_dir])
 
-        current_agent_run_name = training_agent_cfg_key
+        # --- SIMPLIFIED & CORRECTED: Logic to set the agent name for logs ---
         if training_agent_type == "DQN":
-            training_dqn_preset = st.session_state.get('train_dqn_preset', 'fast_learning')
-            command.extend(["--preset_name", training_dqn_preset])
-            current_agent_run_name = f"dqn_{training_dqn_preset}"
+            selected_preset = st.session_state.get('train_dqn_preset', 'fast_learning')
+            command.extend(["--preset_name", selected_preset])
+            st.session_state['agent_for_logs'] = f"dqn_{selected_preset}"
+        else: # A2C or PPO
+            st.session_state['agent_for_logs'] = training_agent_cfg_key
         
+        # --- SIMPLIFIED: Redirect output to a file and store PID ---
         log_file_path = os.path.join(project_root, "training_log.log")
         st.session_state['log_file_path'] = log_file_path
         
         with open(log_file_path, 'w') as log_file:
-            process = subprocess.Popen(command, stdout=log_file, stderr=subprocess.STDOUT, text=True, bufsize=1, cwd=project_root)
+            process = subprocess.Popen(command, stdout=log_file, stderr=subprocess.STDOUT, cwd=project_root)
         
         st.session_state['training_pid'] = process.pid
-        st.session_state['trained_agent_name_for_logs'] = current_agent_run_name
         st.session_state['training_in_progress'] = True
         
         st.rerun()
 
-    if col2.button("Stop Training", use_container_width=True, key="stop_training_btn"):
-        if st.session_state.get('training_in_progress', False) and st.session_state.get('training_pid'):
+    if st.button("Stop Training", use_container_width=True, key="stop_training_btn"):
+        if st.session_state.get('training_in_progress') and st.session_state.get('training_pid'):
             try:
                 os.kill(st.session_state['training_pid'], 9)
                 st.session_state['training_in_progress'] = False
@@ -264,15 +247,13 @@ with tab_training:
 with tab_logs:
     st.header("Live Training Logs and Plots")
     
-    if not st.session_state.get('training_in_progress', False):
+    if not st.session_state.get('training_in_progress'):
         st.info("Start a new training run from the 'Train New Model' tab to see live logs and plots here.")
     else:
         st.info("Training is in progress... Click 'Refresh' to see the latest output.")
 
         log_placeholder = st.empty()
         plot_placeholder = st.empty()
-        
-        # Add a placeholder for the episode counter
         episode_counter_placeholder = st.empty()
 
         if st.button("Refresh"):
@@ -281,7 +262,6 @@ with tab_logs:
                 with open(log_file_path, 'r') as f:
                     full_output = f.readlines()
                 
-                # Episode Counter Logic
                 latest_episode = 0
                 for line in reversed(full_output):
                     if "rollout/ ep:" in line:
@@ -338,8 +318,8 @@ with tab_logs:
                     except Exception as e:
                         plot_placeholder.warning(f"Error updating plot from {csv_path}: {e}")
             
-            if st.session_state.get('trained_agent_name_for_logs'):
-                update_log_plot(st.session_state['trained_agent_name_for_logs'])
+            if st.session_state.get('agent_for_logs'):
+                update_log_plot(st.session_state['agent_for_logs'])
         
         if st.session_state.get('training_pid'):
             try:
