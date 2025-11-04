@@ -1,0 +1,54 @@
+# debug.yaml - for low-resource cloud environments
+env_name: "LunarLander-v3"
+device: "cpu"
+train_episodes: 100 # Train for a short time
+max_timesteps_per_episode: 1000
+seed: 42
+save_dir: "results"
+
+logging:
+  checkpoint_every: 50
+  eval_every: 25
+  eval_episodes: 2
+
+dqn:
+  hidden_layers: [64, 64]
+  lr: 0.001
+  batch_size: 64
+  buffer_size: 10000       # CRITICAL: Drastically reduced
+  min_replay_size: 1000    # CRITICAL: Drastically reduced
+  gamma: 0.99
+  tau: 0.001
+  update_every: 4
+  double_dqn: true
+  clip_grad: 0.5
+  epsilon_start: 1.0
+  epsilon_end: 0.01
+  epsilon_decay: 0.99
+  target_update_every: 500
+
+ppo:
+  hidden_layers: [64, 64]
+  lr: 0.0003
+  gamma: 0.99
+  clip_epsilon: 0.2
+  n_steps: 256             # CRITICAL: Drastically reduced
+  n_epochs: 4
+  batch_size: 32
+  activation: "ReLU"
+  gae_lambda: 0.95
+  ent_coef: 0.01
+
+a2c:
+  hidden_layers: [64, 64]
+  lr: 0.0007
+  gamma: 0.99
+  activation: "Tanh"
+  value_coef: 0.5
+  entropy_coef: 0.01
+
+environment_params:
+  LunarLander-v3:
+    gravity: -10.0
+    enable_wind: False
+    wind_power: 0.0

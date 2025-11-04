@@ -4,6 +4,7 @@ train_episodes: 1450
 max_timesteps_per_episode: 1000
 seed: 42
 save_dir: "results"
+log_save_dir: "logs_results"
 
 logging:
   checkpoint_every: 100

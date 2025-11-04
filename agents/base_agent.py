@@ -9,8 +9,8 @@ from utils.rollout_logger import RolloutLogger
 
 class BaseAgent:
     def __init__(self, env, network, lr=3e-4, gamma=0.99, device='cpu',
-                 save_path='results', config=None, checkpoint_every=None,
-                 eval_every=None, eval_episodes=5):
+                 save_path=None, config=None, checkpoint_every=None,
+                 eval_every=None, eval_episodes=5): # <--- MODIFIED: save_path=None
         self.env = env
         if device and 'cuda' in str(device) and not torch.cuda.is_available():
             print("CUDA requested but not available; falling back to CPU.")
@@ -20,8 +20,8 @@ class BaseAgent:
         self.lr = lr
         self.network = network.to(self.device)
         self.optimizer = torch.optim.Adam(self.network.parameters(), lr=lr)
-        self.save_path = save_path
-        os.makedirs(save_path, exist_ok=True)
+        self.save_path = save_path or (config.get('save_dir') if config else 'results')
+        os.makedirs(self.save_path, exist_ok=True)
         self.best_reward = -float('inf')
         self.episode_rewards = []
         self.agent_name = self.__class__.__name__.replace('Agent','').lower()

@@ -268,6 +268,8 @@ with tab_training:
         script_to_run = f"train_{training_agent_cfg_key}.py"
         command = [sys.executable, os.path.join(project_root, script_to_run)]
         
+        command.extend(['--save_path', config.get('log_save_dir', 'logs_results')])
+
         current_agent_run_name = training_agent_cfg_key
         if training_agent_type == "DQN":
             st.info("DQN training will run all defined presets. Reporting for the first preset.")
@@ -320,7 +322,8 @@ with tab_logs:
 
             # Update plot function
             def update_log_plot(agent_name):
-                csv_path = os.path.join(project_root, 'results', f'{agent_name}_rollouts.csv')
+                log_dir = config.get('log_save_dir', 'logs_results')
+                csv_path = os.path.join(project_root, log_dir, f'{agent_name}_rollouts.csv')
                 if os.path.exists(csv_path):
                     try:
                         # --- START OF MODIFICATION ---
